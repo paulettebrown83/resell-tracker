@@ -1437,6 +1437,7 @@ export default function ResaleWorkbench({
             )}
             {view === "activity" && workbench && (
               <OperationActivity
+                sources={sourceRecords}
                 operations={operations}
                 error={operationsError}
                 data={workbench}
