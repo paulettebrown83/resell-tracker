@@ -1,5 +1,5 @@
 import { supabase, requireAccess, requireWritableDeployment, type InventoryItem } from './supabase'
-import type { ResaleItemDetails, ResaleAccount, ResaleListing, ResaleSnapshot, ResaleMedia, ResaleAttention, ResaleAction, ResaleItemInput } from './resale-contract'
+import type { ResaleItemDetails, ResaleAccount, ResaleListing, ResaleSnapshot, ResaleMedia, ResaleAttention, ResaleAction, ResaleItemInput, ResaleSourceRecord } from './resale-contract'
 
 async function rows<T>(table: string, key = 'id'): Promise<T[]> {
   const result: T[] = []
@@ -32,4 +32,10 @@ export async function saveResaleItem(input: ResaleItemInput, requestId: string):
   const { data, error } = await supabase.rpc('resale_save_item', { p_request_id: requestId, p_payload: input })
   if (error) throw error
   return data as string
+}
+
+/** Optional report-evidence read; existing workbench shape stays unchanged. Requires the source-record migration. */
+export async function getResaleSourceRecords(): Promise<ResaleSourceRecord[]> {
+  await requireAccess()
+  return rows<ResaleSourceRecord>('resale_source_records')
 }

@@ -50,3 +50,17 @@ export interface ResaleAction {
 export type ResaleItemInput = Partial<Omit<ResaleItemDetails, 'inventory_id' | 'version' | 'updated_at'>> & {
   id?: string; version?: number; item_name: string; item_cost: number | null; date_added?: string | null;
 };
+
+/** Immutable imported business evidence. Missing order IDs or event times remain missing. */
+export interface ResaleSourceRecord {
+  id: string; snapshot_id: string; account_id: string; record_key: string; row_index: number | null;
+  source_kind: 'csv' | 'browser' | 'email' | 'official_api' | 'webhook' | 'manual';
+  source_file_sha256: string | null; source_row_sha256: string | null;
+  raw_business: Record<string, unknown>; normalized: Record<string, unknown>;
+  external_identifiers: Record<string, unknown>;
+  event_precision: 'unknown' | 'date' | 'instant'; event_date: string | null;
+  event_time: string | null; event_timezone: string | null;
+  source_observed_at: string | null; captured_at: string;
+  record_status: 'accepted' | 'needs_review' | 'quarantined'; review_reason: string | null;
+  supersedes_record_id: string | null; created_at: string;
+}
