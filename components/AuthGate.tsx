@@ -130,6 +130,7 @@ export default function AuthGate({
           <p className="wb-eyebrow">YOUR PRIVATE WORKSPACE</p>
           <h1>{area === "genealogy" ? "Book of Snippets" : "Welcome back."}</h1>
           <p>Sign in to pick up where you left off.</p>
+          <p className="wb-help"><Link href="/privacy">Privacy notice</Link> · <Link href="/terms">Terms of use</Link></p>
           {error && (
             <p role="alert" className="wb-alert">
               {error}
