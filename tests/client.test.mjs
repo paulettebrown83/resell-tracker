@@ -44,3 +44,25 @@ for (const action of [() => saveSale({}), () => retryPendingSale(), () => addExp
   await assert.rejects(action, /preview is read only/)
 }
 console.log('PASS preview environment blocks every application write path before network access')
+
+// Export retains the v1 envelope and legacy tables, adds authorized resale evidence,
+// and pages details by their actual primary key. Never query private buffers.
+delete process.env.NEXT_PUBLIC_APP_DEPLOYMENT_ENV
+result={data:true,error:null}
+const queried=[]
+supabase.from=(table)=>({ select:()=>({order:(key)=>({range:async(from)=>{
+  queried.push({table,key,from})
+  return {data:table==='resale_source_records'&&from===0?Array.from({length:500},(_,i)=>({id:i})):[],error:null}
+}})})})
+const {exportRecords}=await import('../lib/supabase.ts')
+const exported=await exportRecords()
+assert.equal(exported.format,'resale-record-export-v1')
+for(const table of ['sales','inventory','expenses','resell_clothes','sale_history','resale_media','resale_source_records','resale_listing_match_history']) assert.ok(table in exported.tables)
+assert.ok(queried.some(row=>row.table==='resale_source_records'&&row.from===500))
+assert.ok(queried.some(row=>row.table==='resale_item_details'&&row.key==='inventory_id'))
+assert.ok(queried.every(row=>!row.table.includes('private')&&!row.table.includes('credential')&&!row.table.includes('requests')&&!row.table.includes('membership')))
+result={data:false,error:null}
+const priorQueries=queried.length
+await assert.rejects(exportRecords,/not been granted/)
+assert.equal(queried.length,priorQueries)
+console.log('PASS extended member-scoped export preserves envelope, legacy tables, paging and non-id primary key; excludes credentials and request buffers')
