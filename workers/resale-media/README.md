@@ -50,3 +50,8 @@ Before marking storage connected: deploy reviewed schema + Worker secret/binding
 ## Edge runtime redirect compatibility
 
 Hosted invalid-token verification exposed an edge-only fetch failure on September 6, 2026: workerd rejects `redirect: 'error'` even though the current Request documentation lists it. Reproduced with Miniflare `5.20260903.0-alpha` / its bundled workerd using only an invalid bearer and a synthetic receipt key. Worker upstream requests therefore use `redirect: 'manual'`; every 3xx is rejected by the normal non-OK response check and credentials are never forwarded to a redirect target. Browser fetch remains `redirect: 'error'`, which is supported there. Node unit boundary now enforces edge-supported modes and tests redirect denial. No public debugging endpoint, exception log, or production secret was used.
+
+
+## Browser recovery bounds
+
+Original reservation, session lookup and database finalization each have a local30-second deadline; original PUT/receipt and preview byte loading each have a120-second deadline. Cancellation is checked between stages and passed into PostgREST and fetch. A late response cannot advance a cancelled upload into its next stage. Timeout means the result is unconfirmed, not that storage failed: keep the exact upload ID and original File for retry. The photo-list refresh is separately bounded; an unsuccessful refresh never changes a ready upload back into a failed one. These are local UI recovery limits, not provider limits or proof of a particular network failure.

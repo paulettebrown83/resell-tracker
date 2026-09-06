@@ -51,7 +51,7 @@ Reviewed migration source `20260906083147_resale_ebay_connection.sql` was applie
 
 Supabase Edge `resale-ebay-connect` version1 is deployed with custom authentication. Eight hosted SQL-role checks passed with every synthetic write rolled back; connections, reads, configuration and token rows remain zero. Actual Edge HTTP checks rejected signed-out requests401, invalid bearer403, unconfigured deletion409 and unknown operation400. No provider request or live credential was involved.
 
-The app release supplies the connection/setup page; native signed-in acceptance remains pending the locked Mac. Real seller consent, listing/order readback, deletion registration and full coverage validation remain activation checks. The previously released Poshmark package feature also retains its separate actual private-byte/download/discard/native acceptance checklist; these eBay checks do not replace it.
+The app release supplies the connection/setup page. A signed-in Comet extension check on September6 verified the exact seller, Not connected status, missing setup explanation and disabled connection/read controls at947×721. OS-native controls became unavailable after the Mac relocked; mobile and live-provider acceptance remain separate. Real seller consent, listing/order readback, deletion registration and full coverage validation remain activation checks. The previously released Poshmark package feature also retains its separate actual private-byte/download/discard/native acceptance checklist; these eBay checks do not replace it.
 
 ## Resumable active-listing reads
 
