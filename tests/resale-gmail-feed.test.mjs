@@ -54,6 +54,7 @@ try {
  await rpc(db,'resale_gmail_checkpoint_run',[feed,lease,cursor])
  await deny(()=>rpc(db,'resale_gmail_checkpoint_run',[feed,lease,{...cursor,window_start_ms:cursor.window_start_ms+1000}]),'22023')
  await deny(()=>rpc(db,'resale_gmail_finish_run',[feed,lease,'complete',cursor,null]),'22023')
+ await deny(()=>rpc(db,'resale_gmail_finish_run',[feed,lease,'complete',{...cursor,window_complete:true,pending_message_ids:[],next_page_token:'unread-page'},null]),'22023')
  await deny(()=>ingest(db,receipt(feed,lease,account,{received_at:cursor.window_start_ms-1})),'22023')
  const one=receipt(feed,lease,account),out=await ingest(db,one);assert.equal(out.duplicate,false)
  assert.deepEqual(await ingest(db,one),{...out,duplicate:true})

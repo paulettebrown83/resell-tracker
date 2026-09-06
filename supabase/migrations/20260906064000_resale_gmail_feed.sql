@@ -228,7 +228,7 @@ begin
  or (p_cursor->'page_token'<>'null'::jsonb and (jsonb_typeof(p_cursor->'page_token')<>'string' or length(p_cursor->>'page_token')>4096))
  or (p_cursor->>'window_start_ms')::numeric<0 or (p_cursor->>'window_start_ms')::numeric>=(p_cursor->>'window_end_ms')::numeric
  or (p_cursor->>'window_end_ms')::numeric>extract(epoch from clock_timestamp())*1000+30000
- or ((p_cursor->>'window_complete')::boolean and p_cursor->'page_token'<>'null'::jsonb) then raise exception 'Invalid bounded Gmail cursor' using errcode='22023'; end if;
+ or ((p_cursor->>'window_complete')::boolean and (p_cursor->'page_token'<>'null'::jsonb or (p_cursor?'next_page_token' and p_cursor->'next_page_token'<>'null'::jsonb))) then raise exception 'Invalid bounded Gmail cursor' using errcode='22023'; end if;
  if p_cursor?'next_page_token' and p_cursor->'next_page_token'<>'null'::jsonb and (jsonb_typeof(p_cursor->'next_page_token')<>'string' or length(p_cursor->>'next_page_token')>2048) then raise exception 'Invalid next-page token' using errcode='22023'; end if;
  if p_cursor?'pending_message_ids' and p_cursor->'pending_message_ids'<>'null'::jsonb then
  if jsonb_typeof(p_cursor->'pending_message_ids')<>'array' or jsonb_array_length(p_cursor->'pending_message_ids')>25 then raise exception 'Invalid pending message page' using errcode='22023'; end if;
