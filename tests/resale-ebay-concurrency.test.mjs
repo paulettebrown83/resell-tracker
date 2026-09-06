@@ -68,6 +68,15 @@ try {
   const pending=rpc(b,'resale_ebay_finish_read',[owner,second,two.lease,nextResult,null]).then(value=>({value}),error=>({error}));
   let waited=false;for(let n=0;n<100;n++){if((await admin.query('select wait_event_type from pg_stat_activity where pid=$1',[bPid])).rows[0].wait_event_type==='Lock'){waited=true;break}await new Promise(resolve=>setTimeout(resolve,20))}assert(waited);
   await a.query('commit');const rejected=await pending;assert.equal(rejected.error?.code,'42501');assert.equal((await admin.query('select result from public.resale_ebay_reads where id=$1',[second])).rows[0].result,null);
+  // Native source deletion also serializes against an uncheckpointed active-listing page.
+  await admin.query('delete from private.resale_ebay_read_leases');
+  const runId=randomUUID();await rpc(a,'resale_ebay_start_listing_run',[owner,account,runId]);
+  async function listingRead(listingId){const claim=await rpc(a,'resale_ebay_claim_listing_run',[owner,runId]);const request=claim.request;const leased=await rpc(a,'resale_ebay_claim_read',[owner,account,request.request_id,'listings',request.page,null,null]);await rpc(a,'resale_ebay_finish_read',[owner,request.request_id,leased.lease,{records:[{listing_id:listingId,title:'synthetic',observed_status:'active'}],page:request.page,total_pages:2,total_entries:2,has_more:request.page<2,coverage:'active_only',source_sha256:hash(listingId)},null]);return request.request_id;}
+  const listingOne=await listingRead('123456789011');await rpc(a,'resale_ebay_checkpoint_listing_run',[owner,runId,listingOne]);const listingTwo=await listingRead('123456789012');
+  await a.query('begin');await rpc(a,'resale_ebay_deletion_receive',[{...notice,event_id:'synthetic-seller-delete',subject_eias_sha256:hash('seller')}]);
+  const finalizing=rpc(b,'resale_ebay_checkpoint_listing_run',[owner,runId,listingTwo]).then(value=>({value}),error=>({error}));
+  waited=false;for(let n=0;n<100;n++){if((await admin.query('select wait_event_type from pg_stat_activity where pid=$1',[bPid])).rows[0].wait_event_type==='Lock'){waited=true;break}await new Promise(resolve=>setTimeout(resolve,20))}assert(waited);
+  await a.query('commit');assert.equal((await finalizing).error?.code,'42501');assert.equal((await admin.query("select count(*)::int n from public.resale_source_records where source_kind='official_api'")).rows[0].n,0);assert.equal((await admin.query('select count(*)::int n from private.resale_ebay_listing_ingests')).rows[0].n,0);
   console.log('PASS native eBay private buyer binding, exact buyer purge, seller preservation and concurrent deletion blocks stale read finalization');
 } finally {
   await Promise.allSettled(clients.map(client=>client.end()))
