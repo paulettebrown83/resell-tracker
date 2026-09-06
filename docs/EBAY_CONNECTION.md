@@ -1,6 +1,6 @@
 # eBay connection/read foundation
 
-This is unactivated code. No production developer key, registered RuName, seller OAuth grant, API read, or deletion subscription has been verified. Existing Seller Hub reports remain historical evidence. The connection page is discoverable under Marketplaces; it never infers API access from a browser login.
+This foundation is intentionally unactivated. No production developer key, registered RuName, seller OAuth grant, API read, or deletion subscription has been verified. Existing Seller Hub reports remain historical evidence. The connection page is discoverable under Marketplaces; it never infers API access from a browser login.
 
 ## Runtime and permissions
 
@@ -44,3 +44,11 @@ REST Identity/Fulfillment overviews are current, but their old method URLs redir
 ## Local verification
 
 `npm run test:ebay` covers provider/proxy and SQL-role fixtures. `npm run test:ebay-concurrency` starts a disposable native PostgreSQL server and verifies buyer deletion against an in-flight finalization. The provider suite also passed in Deno2.9.6 with the committed import map/lock. This is local compatibility evidence; it does not replace actual hosted Edge, OAuth or Seller Hub acceptance. Full application tests, typecheck, lint and a build with public configuration passed before rollout.
+
+## Disabled rollout checkpoint (2026-09-06)
+
+Reviewed migration source `20260906083147_resale_ebay_connection.sql` was applied under hosted ledger `20260906090716`, SHA256 `cbba0ba9f3409d5238d36573549a69e119d2009b7aeab4914cc84476d7c1676e`. All33 pre-existing table fingerprints remained unchanged. The fresh prerequisite snapshot restored all7 captured rows across memberships/accounts before and after the migration; it is explicitly a partial snapshot, not Auth/Vault/Storage or full project recovery.
+
+Supabase Edge `resale-ebay-connect` version1 is deployed with custom authentication. Eight hosted SQL-role checks passed with every synthetic write rolled back; connections, reads, configuration and token rows remain zero. Actual Edge HTTP checks rejected signed-out requests401, invalid bearer403, unconfigured deletion409 and unknown operation400. No provider request or live credential was involved.
+
+The app release supplies the connection/setup page; native signed-in acceptance remains pending the locked Mac. Real seller consent, listing/order readback, deletion registration and full coverage validation remain activation checks. The previously released Poshmark package feature also retains its separate actual private-byte/download/discard/native acceptance checklist; these eBay checks do not replace it.
