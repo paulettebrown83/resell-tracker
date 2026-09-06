@@ -11,6 +11,7 @@ export async function baseline() {
     create function auth.role() returns text language sql stable as $$ select current_user::text $$;
     grant usage on schema auth,public to anon,authenticated,service_role;
     grant execute on all functions in schema auth to anon,authenticated,service_role;`)
+  await db.exec(await readFile(new URL('./storage-fixture.sql',import.meta.url),'utf8'))
   await db.exec(await readFile(new URL('./baseline.sql',import.meta.url),'utf8'))
   return db
 }

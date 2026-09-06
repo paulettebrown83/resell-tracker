@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import Dialog from "./WorkbenchDialog";
+import PoshmarkPackage from "./PoshmarkPackage";
 import type { InventoryItem } from "@/lib/supabase";
 import type { ResaleWorkbench } from "@/lib/resale-data";
 import {
@@ -301,6 +302,9 @@ export default function ListingDraftDialog({
             reviewed in Marketplaces first. A new local draft is not a new
             published listing.
           </p>
+          {marketplace === "poshmark" && selected && selected.draft_version > 0 && !selected.external_listing_id && !stale && (
+            <PoshmarkPackage key={selected.id} listing={selected} disabled={preview} />
+          )}
           <button
             className="wb-button wb-button-primary"
             disabled={!listingId || !guidance || Boolean(stale)}

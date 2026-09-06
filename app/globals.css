@@ -2784,3 +2784,9 @@ svg {
 .wb-integration-permission { padding: 24px; line-height: 1.7; }
 .wb-integration-permission h2 { margin: 0 0 10px; font-size: 18px; }
 @media (max-width: 560px) { .wb-integration-page { padding: 0 16px; } .wb-integration-actions .wb-button { width: 100%; } }
+
+.wb-package { border: 1px solid var(--wb-border, #d8d4ca); border-radius: 1rem; padding: 1.25rem; display: grid; gap: .85rem; margin: 1rem 0; }
+.wb-package h3 { font-size: 1.15rem; font-weight: 700; }
+.wb-package .wb-action-row { display: flex; flex-wrap: wrap; gap: .6rem; margin: .65rem 0; }
+.wb-package .wb-field-grid { display: grid; gap: .8rem; }
+.wb-package details { overflow-wrap: anywhere; font-size: .85rem; }

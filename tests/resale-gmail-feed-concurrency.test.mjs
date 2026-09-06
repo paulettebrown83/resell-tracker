@@ -41,6 +41,7 @@ try {
     .replaceAll('vector(1536)', 'vector')
     .replace(/^CREATE INDEX thoughts_embedding_idx[^\n]+\n/m, '')
   await admin.query(baselineSql)
+  await admin.query(await readFile(new URL('./storage-fixture.sql', import.meta.url), 'utf8'))
   const migrations = new URL('../supabase/migrations/', import.meta.url)
   for (const name of (await readdir(migrations)).filter(n => n.endsWith('.sql')).sort())
     await admin.query(await readFile(new URL(name, migrations), 'utf8'))
