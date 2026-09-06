@@ -1,0 +1,37 @@
+# Poshmark files in the tracker
+
+The saved local draft offers **Prepare Poshmark files** for the verified Poshmark account. Select the actual native department/category, confirm the package is for one unit, and prepare. The saved title, description, size, condition, whole-dollar USD price and selected original photo IDs are used without silently editing them. If the template rejects a saved value, edit the saved draft and prepare a new package.
+
+Preparation automatically advances while the page is open. Closing the page stops the sequence after the active step; **Resume preparation** continues the saved request. Download the listing file and photos ZIP when ready. The files do not upload, publish, change stock, record a sale or prove a shop is connected. The default output availability is Draft.
+
+Before native upload, an authorized agent checks the exact Poshmark account, confirms the item is genuinely unlisted and the generated SKU is absent across closet listings and variants. An existing SKU can edit an existing listing. Then upload both files under **Photos on Your Computer** at https://poshmark.com/bulk-upload-create and verify the actual resulting native draft. The existing Old Navy ghost-flannel listings are excluded from creation/import; their pilot requires update/readback instead. Paulette does not need to run scripts or inspect hashes. Physical facts and account challenges may still need her.
+
+## Runtime and contracts
+
+`POST /api/listing-packages` accepts bearer-authenticated JSON actions: options; list with listing_id; start with id (stable request UUID) and payload; step with id; receipt/abandon with id for lost-request recovery; discard with id. Every action requires current resale membership and production same-origin access. Preview cannot write. Development is limited to explicit localhost:3018. The runtime uses only public Supabase URL/key and the fresh caller bearer; no bearer is persisted and no management/service/Vault secret is consumed.
+
+Start payload: exact listing_id, account_id, inventory_id, expected_version, quantity:1, native_fields. Native fields are limited to Department, Category, Sub-category, Brand, Color1, Color2 and `Orig price `; these cannot override saved copy or price. The database freezes resolved desired_fields and exact ready original IDs, item IDs, MIME, R2 bucket/key, SHA256, byte count and order. Request UUID retries require identical actor and JSON. A server-confirmed unaccepted request can be canceled atomically before replacing it, preventing a late old request from starting afterward.
+
+The package table is prepared-artifact bookkeeping only, never trusted marketplace proof. Its member-owned metadata does not authorize publication. Source bytes are fetched from the existing member-authenticated R2 Worker and verified against the database snapshot. Each Node invocation handles one photo; the next invocation assembles the final files after all photo checkpoints. The UI receives small metadata JSON, never a ZIP response from Vercel. Node sharp is pinned at0.35.4, fflate0.8.3, csv-parse7.0.2. The inspected native contract is pinned by its own bytes as well as the original template hash.
+
+Dedicated private Supabase Storage bucket: `resale-listing-packages`. Exact package UUID paths: photo-0.jpg through photo-15.jpg, listings.csv, photos.zip, manifest.json. Upload is insert-only; current binding and a live lease are required. After every upload, the server reads back exact stored bytes before checkpointing their hash. A lost upload response can be adopted only if recomputation matches those immutable bytes. Current membership, item/account/draft version/fields and media readiness are checked again after row locks at checkpoints. Downloads use fresh bearer-authenticated Storage reads with current binding checks and browser byte/hash verification. No signed/public original or package URLs are issued. Signed-URL, listing, S3 and overwrite operations are not permitted by these policies.
+
+## Bounds and recovery
+
+These are local preparation limits, not asserted marketplace limits:16 photos,20MiB original,40million pixels,1920pixel maximum derivative edge without enlargement/cropping/square padding,8MiB per JPEG,60MiB total prepared photos and64MiB output. Embedded color profiles convert to sRGB, alpha flattens onto white, orientation is applied and private EXIF/XMP/ICC/IPTC/comment metadata is stripped. Static JPEG/PNG/WebP/GIF are accepted; animation and untagged CMYK require review.
+
+Vercel Node24 has a120-second route maximum; the network budget is105seconds, with45-second individual fetch limits and35-second sharp processing timeout. One active preparation step per owner is enforced by a180-second database lease; one CPU-heavy step per Node process runs at once. A busy/interrupted request pauses and Resume retries with fresh authentication after its lease ends. A saved lease is not background execution or a CPU checkpoint. No generated artifacts run unattended after the page sequence stops.
+
+**Remove prepared files** is an explicit cleanup operation for current or stale packages, gated against an active lease. It closes further package upload/download, removes only the dedicated bucket's fixed paths for that owned UUID using authenticated Storage, verifies no package objects remain, and retains a discarded audit row. Retry unfinished removal. Original R2 photos, inventory, listings and final packages not selected for removal are untouched. No timer silently expires final files.
+
+## Template provenance and checks
+
+Observed official workbook: https://bulk-post-action-template-poshmark-prod.s3.amazonaws.com/us/bulk_upload_template_photo_zip_2025_51.xlsx
+
+Retrieved2026-09-06. SHA256 `f6c51f1f8d319122b6b1fea1d96f886e26e28d87811ff36a402b7cbe6b3b35f2`. Exact30headers, with no photo URL columns. Native naming is SKU-CS.jpg and SKU-1.jpg…SKU-15.jpg. The CSV and ZIP are independently reopened before storage; no unreferenced files, original bytes or private runtime configuration are packed. Stable SKU is R plus uppercase inventory UUID without hyphens. Contract changes need a new reviewed version.
+
+Checks: `npm run test:packages`, `npm run test:packages-concurrency`, full `npm test`, typecheck, lint and production build. SQL tests use synthetic roles, not browser authentication; Storage schema in tests is a policy double. Hosted Storage operation/readback, actual R2 reads, deployment memory behavior and native browser progress/download must be verified separately before marking delivery accepted.
+
+Current source-only status: integration is under review; no package migration or runtime has been deployed yet. Replace this paragraph with exact hosted release and acceptance evidence after delivery.
+
+Primary runtime references checked2026-09-06: https://vercel.com/docs/functions/limitations ; https://sharp.pixelplumbing.com/api-output/ ; https://supabase.com/docs/guides/storage/schema/helper-functions ; https://github.com/supabase/storage/blob/master/src/http/routes/operations.ts .
