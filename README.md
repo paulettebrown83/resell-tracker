@@ -2,13 +2,13 @@
 
 Paulette's existing Next.js/Supabase inventory, sales and expense app. This branch prepares approved-account login and a coordinated database access repair, with retained item links, atomic sale updates, correction history, source duplicate prevention and portable exports.
 
-**Not deployed. Read [the rollout and recovery runbook](docs/ROLLOUT.md) before applying the migration.** Production still uses the old access model until the coordinated cutover. Separate genealogy/garment clients must be included in that cutover.
+**The Google-authenticated foundation is deployed; the new resale workbench migration is prepared locally and is not yet applied.** Read [the rollout and recovery runbook](docs/ROLLOUT.md) and [the resale data contract](docs/RESALE_DATA.md) before changing production. The protected genealogy interface is available at `/genealogy`.
 
 ## Local development
 
 Install the pinned lockfile with `npm ci`. Copy `.env.example` to `.env.local` and enter the staging Supabase URL and public publishable key. Never put a secret/service key into `NEXT_PUBLIC_*` variables. Run `npm run dev`.
 
-Approved permanent Supabase Auth users need an administrator-created `private.memberships` entry for `resale`. There is no public signup UI. Account administration/password reset stays in the existing Supabase administration workflow.
+Approved permanent Supabase Auth users need an administrator-created `private.memberships` entry for `resale`. There is no public signup UI. Google account administration stays in the existing Supabase administration workflow; new signup is closed.
 
 ## Checks
 

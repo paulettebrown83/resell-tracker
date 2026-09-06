@@ -1,8 +1,9 @@
 import { PGlite } from '@electric-sql/pglite'
+import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto'
 import { vector } from '@electric-sql/pglite-pgvector'
 import { readFile, readdir } from 'node:fs/promises'
 export async function baseline() {
-  const db = new PGlite({ extensions: { vector } })
+  const db = new PGlite({ extensions: { vector, pgcrypto } })
   await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create schema extensions;
     create table auth.users (id uuid primary key);

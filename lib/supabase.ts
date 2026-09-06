@@ -40,7 +40,7 @@ export type Sale = {
   settlement_status: string; version: number
 }
 export type InventoryItem = {
-  id: string; item_name: string; item_cost: number; platforms: string[]
+  id: string; item_name: string; item_cost: number | null; platforms: string[]
   date_added: string | null; created_at: string; status: string | null; archived_at: string | null
 }
 export type Expense = {
@@ -63,10 +63,10 @@ export async function requireAccess(area: 'resale' | 'genealogy' = 'resale') {
   if (!data) throw new Error('This account has not been granted access to these records.')
 }
 // Page in stable primary-key order: Supabase's default response limit must not truncate exports.
-async function allRows<T>(table: string): Promise<T[]> {
+async function allRows<T>(table: string, primaryKey = 'id'): Promise<T[]> {
   const rows: T[] = []
   for (let from = 0; ; from += 500) {
-    const { data, error } = await supabase.from(table).select('*').order('id').range(from, from + 499)
+    const { data, error } = await supabase.from(table).select('*').order(primaryKey).range(from, from + 499)
     if (error) throw error
     rows.push(...data as T[])
     if (data.length < 500) return rows
@@ -131,7 +131,11 @@ export const archiveInventoryItem = (id: string) => archive('inventory', id)
 export const archiveExpense = (id: string) => archive('expenses', id)
 export async function exportRecords() {
   await requireAccess()
-  const names = ['sales', 'inventory', 'expenses', 'resell_clothes', 'sale_history']
-  const tables = Object.fromEntries(await Promise.all(names.map(async name => [name, await allRows(name)])))
+  const names = ['sales', 'inventory', 'expenses', 'resell_clothes', 'sale_history',
+    'resale_item_details', 'resale_accounts', 'resale_snapshots', 'resale_listings',
+    'resale_observations', 'resale_order_lines', 'resale_order_events', 'resale_media',
+    'resale_review_cases', 'resale_actions', 'resale_action_attempts',
+    'resale_source_records', 'resale_listing_match_history']
+  const tables = Object.fromEntries(await Promise.all(names.map(async name => [name, await allRows(name, name === 'resale_item_details' ? 'inventory_id' : 'id')])))
   return { format: 'resale-record-export-v1', exported_at: new Date().toISOString(), tables }
 }
