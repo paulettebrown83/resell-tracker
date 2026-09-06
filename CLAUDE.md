@@ -1,49 +1,21 @@
-# CLAUDE.md
+# Repository guidance
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This is Paulette's existing Next.js resale app. Read README.md and docs/ROLLOUT.md before changes. The prepared security migration is not a verified production deployment.
 
-## Project Overview
+- Codex handles authorized review, fixes, merges and deployment mechanics. Explain a PR (pull request) as a reviewed package of changes; give Paulette plain-language outcomes and only the next decision/action she actually needs. Do not ask her to operate squash/merge workflows.
+- Use Comet; the connected browser extension may label its Chromium family as Chrome. Verify the native app before using that connection.
+- `app/page.tsx` holds inventory/expense/report UI. `components/AuthGate.tsx` handles password login and membership gating. `components/SaleEditor.tsx` captures actual sale values and corrections. `lib/supabase.ts` owns browser data access and uncertain-request retries.
+- Membership rules and narrowly authorized atomic sale functions live in `supabase/migrations/`. Preserve original IDs, source identity, history and request records. Never restore broad public policies or delete inventory to mark it sold.
+- New sales require actual fee/shipping; do not add assumed marketplace rates. Unknown historical cost is not zero. Net payout excludes marketplace deductions; avoid counting already deducted shipping twice.
+- The public repository must contain no business row dumps, Auth passwords, service keys or Vault values. Public project configuration belongs in `.env.local`/Vercel, with placeholders only in `.env.example`.
+- Verify with `npm test`, `npm run typecheck`, `npm run lint`, `npm run build` and `npm audit`. Local SQL tests do not replace hosted Auth/REST/multi-session cutover tests.
 
-Resale tracker for logging sales, inventory, and expenses across eBay, Mercari, Poshmark, and Depop. Deployed on Vercel with Supabase backend. Used for a resale business doing ~250+ items/year.
+<!-- BEGIN:nextjs-agent-rules -->
 
-## Commands
+# This is NOT the Next.js you know
 
-- `npm run dev` — Start dev server (port 3000)
-- `npm run build` — Production build
-- `npm run lint` — Run ESLint (Next.js Web Vitals + TypeScript rules)
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
-## Tech Stack
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
-Next.js 16 (App Router), React 19, TypeScript (strict), Tailwind CSS v4, Supabase (PostgreSQL). No test framework configured.
-
-## Architecture
-
-Single-page client component app. All UI lives in `app/page.tsx` (~675 lines). All data access lives in `lib/supabase.ts`.
-
-- **`app/page.tsx`** — `'use client'` component with three tabs (Sales, Inventory, Bulk Expenses), stats dashboard (5 cards), forms, and lists. All state managed with `useState`/`useEffect`.
-- **`lib/supabase.ts`** — Supabase client, TypeScript types (`Sale`, `InventoryItem`, `Expense`), and CRUD functions. This is the entire data layer.
-- **`app/globals.css`** — Tailwind CSS v4 with `@import "tailwindcss"` and `@theme inline`. Light/dark mode via `prefers-color-scheme`.
-
-## Supabase
-
-Three tables: `sales`, `inventory`, `expenses`. Schema managed via Supabase dashboard (no local migrations). RLS enabled. Uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from `.env.local`.
-
-## Business Logic
-
-- **Platform fee calculations** (`calculateFees` in page.tsx:78-91):
-  - eBay: 13.6% + $0.40
-  - Mercari: 12.9% + $0.30
-  - Poshmark: 20% (or $2.95 if under $15)
-  - Depop: 3.3% + $0.45
-- **eBay special handling**: Optional "Gross Total" and "Actual Received" fields override calculated fees for accuracy
-- **Mark as Sold**: Converts inventory item to a sale record and deletes from inventory
-- **Personal items**: Use $0 item cost for non-taxable vintage clothing
-- **Crosslisting**: Inventory items can be listed on multiple platforms (array field)
-- **Sorting**: Sales and inventory alphabetized by item name
-
-## Conventions
-
-- Path alias: `@/*` maps to project root
-- Tailwind CSS v4 (no `tailwind.config.js` — theming inline in globals.css)
-- No Prettier — formatting relies on ESLint
-- Error handling uses `alert()` and `console.error()`
+<!-- END:nextjs-agent-rules -->
