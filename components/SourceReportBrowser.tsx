@@ -96,9 +96,11 @@ function businessStatus(row: ResaleSourceRecord) {
 export default function SourceReportBrowser({
   data,
   sources,
+  onRequestCheck,
 }: {
   data: ResaleWorkbench;
   sources: ResaleSourceRecord[];
+  onRequestCheck?: (source: ResaleSourceRecord) => void;
 }) {
   const [account, setAccount] = useState("all"),
     [report, setReport] = useState("all"),
@@ -259,6 +261,17 @@ export default function SourceReportBrowser({
                 ?.marketplace || "Unknown marketplace"}{" "}
               · {evidenceLabel(row.source_kind)} · {eventLabel(row)}
             </p>
+            {onRequestCheck && (
+              <button
+                className="wb-text-button"
+                disabled={
+                  process.env.NEXT_PUBLIC_APP_DEPLOYMENT_ENV === "preview"
+                }
+                onClick={() => onRequestCheck(row)}
+              >
+                Request an evidence check
+              </button>
+            )}
             {businessStatus(row) && (
               <p className="wb-report-status">{businessStatus(row)}</p>
             )}

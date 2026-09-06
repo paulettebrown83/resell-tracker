@@ -116,3 +116,13 @@ export function makeCSV(headers: string[], rows: string[][]) {
     ...rows.map((row) => row.map(escape).join(",")),
   ].join("\n");
 }
+
+export const OPERATION_LABELS: Record<string, string> = {
+  publish: "Publish listing",
+  update: "Update listing",
+  delist: "Remove listing",
+  import: "Import source evidence",
+  reconcile_sale: "Check sale evidence",
+  reconcile_cancellation: "Check cancellation or refund",
+  reconcile_shipping: "Check shipping evidence",
+};

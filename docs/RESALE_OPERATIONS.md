@@ -39,3 +39,13 @@ Original sale-generated delist actions retain protocol0 and their reviewed exact
 The local SQL tests exercise changed/actor retries, wrong accounts, stale target versions, sold items, malicious deep links, untrusted success claims, readiness and missing fields, checkpoints, uncertain readback, unchanged completion retries, missing order identity/quantity review, unchanged canonical inventory/orders/sales, dispatcher isolation and immediate revocation. Native PostgreSQL tests use independent connections for same-request serialization, competing leases and revocation while a request waits.
 
 Run `npm test`, `npm run test:operations-concurrency`, `npm run typecheck`, and `npm run lint`. Native test processes and temporary database directories are stopped/removed in `finally`. Root reviews and integrates the migration together with nullable-listing UI handling. No production migration or marketplace mutation is authorized by this document alone.
+
+## Workbench controls
+
+Shop activity reads the common view and shows blockers, next step, execution mode, saved checkpoint and trusted proof references. An unavailable read is an error, not an empty or synchronized queue. Item detail can filter activity to the original physical item, including sold records; sale/draft actions stay disabled for sold or archived inventory. Evidence operations with NULL listing IDs remain visible as account-level checks.
+
+A listing's Request a shop step captures its exact item/account/listing, expected observation and item version, plus `{prepared_fields: listing.desired_fields, note}` for outbound requests. Publish/update preparation must belong to the current item link. Source report rows offer the three read-only evidence checks with `{source_record_ids, snapshot_ids, note}` and a same-account source trigger. These arrays propose scope; only trusted dispatch verifies it. No fixtures or provider planner packets are submitted by these controls.
+
+Evidence selection is limited to the operation's account and submits only source IDs and an optional explanation. It cannot mark an operation complete. Recovery preserves exact request identity and command snapshot; a dialog closes after recovery only when the recovered command/target exactly matches its current contents. Otherwise current edits remain open. Global record tools recover the pending account-scoped request. Native execution/resume, cancellation/refund execution, label purchase/printing and periodic marketplace synchronization are not enabled by this UI.
+
+The member export adds public operation proposals and verification receipts; private adapter registrations, requests, credentials and leases stay excluded. No new server or production credential is introduced.

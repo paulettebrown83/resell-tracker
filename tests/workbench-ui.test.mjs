@@ -113,6 +113,7 @@ const source = {
   getExpenses: async () => expenses,
   getResaleWorkbench: async () => ({ ...data, inventory }),
   getResaleSourceRecords: async () => [],
+  getResaleOperations: async () => [],
   saveItemWithRetry: async (input) => {
     savedItems.push(input);
     inventory.push({ ...base, ...input, id: "new-item" });
@@ -791,6 +792,278 @@ try {
   draftHost.remove();
   console.log(
     "PASS guided draft requires explicit shop/record, leaves price/shipping unknown, separates shared facts and overrides, preserves item cost and refreshes after save",
+  );
+  const {
+    OperationCards,
+    OperationRequestDialog,
+    OperationEvidenceDialog,
+    OperationActivity,
+  } = load("components/OperationViews.tsx");
+  const operationHost = document.createElement("div");
+  document.body.append(operationHost);
+  const operationRoot = createRoot(operationHost);
+  const operation = {
+    id: "synthetic-operation",
+    account_id: draftAccount.id,
+    marketplace: "ebay",
+    action: "reconcile_shipping",
+    state: "blocked",
+    execution_mode: "supervised_agent_browser",
+    listing_id: null,
+    inventory_id: null,
+    blockers: [
+      { code: "missing_data", message: "Check the exact shipment receipt" },
+    ],
+    missing_fields: ["source_record_ids"],
+    required_fields: ["source_record_ids"],
+    deep_link: "https://unrelated.example/unsafe",
+    next_step: {
+      key: "receipt",
+      label: "Review shipping receipt",
+      explanation: "Compare the saved carrier evidence with this order.",
+    },
+    checkpoint: { step_key: "await_receipt" },
+    proposal_count: 0,
+    verification_id: null,
+    verification_observation_id: null,
+    created_at: "2026-09-06",
+  };
+  const opSource = {
+    id: "source-same-account",
+    account_id: draftAccount.id,
+    snapshot_id: "source-snapshot",
+    row_index: 1,
+    normalized: { title: "Synthetic shipping receipt" },
+    raw_business: {},
+    external_identifiers: {},
+    record_status: "accepted",
+    event_precision: "unknown",
+    event_date: null,
+    event_time: null,
+  };
+  const opSources = [
+    opSource,
+    {
+      ...opSource,
+      id: "source-other-account",
+      account_id: "different-shop",
+      normalized: { title: "Other shop private row" },
+    },
+  ];
+  await act(async () =>
+    operationRoot.render(
+      React.createElement(OperationCards, {
+        operations: [operation],
+        data: draftData,
+        onEvidence: () => {},
+      }),
+    ),
+  );
+  assert.match(operationHost.textContent, /Check shipping evidence/);
+  assert.match(operationHost.textContent, /Review shipping receipt/);
+  assert.match(operationHost.textContent, /Account-level evidence review/);
+  assert.match(operationHost.textContent, /No verification recorded/);
+  assert.equal(
+    operationHost.querySelectorAll("a").length,
+    0,
+    "Unsafe deep link is omitted",
+  );
+  assert.ok(
+    !Array.from(operationHost.querySelectorAll("button")).some((n) =>
+      /run|resume|mark.*(done|complete)/i.test(n.textContent),
+    ),
+  );
+  const opLabel = (text) =>
+    Array.from(operationHost.querySelectorAll("label")).find((n) =>
+      n.textContent.trim().startsWith(text),
+    );
+  const submitted = [];
+  let closedOperation = 0;
+  await act(async () =>
+    operationRoot.render(
+      React.createElement(OperationRequestDialog, {
+        context: { source: opSource },
+        data: draftData,
+        save: async (input) => submitted.push(input),
+        retry: async () => {},
+        onSaved: async () => {},
+        onClose: () => {
+          closedOperation++;
+        },
+      }),
+    ),
+  );
+  await fill(
+    opLabel("Requested step").querySelector("select"),
+    "reconcile_shipping",
+  );
+  assert.match(operationHost.textContent, /does not buy or print a label/);
+  await fill(
+    opLabel("Context for this request").querySelector("textarea"),
+    "Check the carrier receipt",
+  );
+  await act(async () =>
+    operationHost
+      .querySelector("form")
+      .dispatchEvent(
+        new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+      ),
+  );
+  assert.equal(submitted[0].listing_id, null);
+  assert.equal(submitted[0].inventory_id, null);
+  assert.deepEqual(submitted[0].trigger, {
+    kind: "source_record",
+    id: opSource.id,
+  });
+  assert.deepEqual(submitted[0].requested.source_record_ids, [opSource.id]);
+  assert.equal(submitted[0].action, "reconcile_shipping");
+  assert.equal(closedOperation, 1);
+  let evidenceArgs;
+  await act(async () =>
+    operationRoot.render(
+      React.createElement(OperationEvidenceDialog, {
+        operation,
+        sources: opSources,
+        save: async (id, input) => {
+          evidenceArgs = { id, input };
+        },
+        retry: async () => {},
+        onSaved: async () => {},
+        onClose: () => {},
+      }),
+    ),
+  );
+  assert.doesNotMatch(operationHost.textContent, /Other shop private row/);
+  await act(() =>
+    operationHost.querySelector('input[type="checkbox"]').click(),
+  );
+  await act(async () =>
+    operationHost
+      .querySelector("form")
+      .dispatchEvent(
+        new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+      ),
+  );
+  assert.equal(evidenceArgs.id, operation.id);
+  assert.deepEqual(evidenceArgs.input.source_record_ids, [opSource.id]);
+  assert.equal(operation.state, "blocked");
+  let recoveryClose = 0;
+  await act(async () =>
+    operationRoot.render(
+      React.createElement(OperationEvidenceDialog, {
+        key: "evidence-recovery",
+        operation,
+        sources: opSources,
+        save: async () => {
+          throw new Error("Previous evidence pending");
+        },
+        retry: async () => ({
+          resultId: "previous-proposal",
+          command: {
+            kind: "evidence",
+            operationId: "a-different-operation",
+            input: { source_record_ids: [], note: "Earlier note" },
+          },
+        }),
+        onSaved: async () => {},
+        onClose: () => {
+          recoveryClose++;
+        },
+      }),
+    ),
+  );
+  await fill(
+    opLabel("What should be checked?").querySelector("textarea"),
+    "New evidence note",
+  );
+  await act(async () =>
+    operationHost
+      .querySelector("form")
+      .dispatchEvent(
+        new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+      ),
+  );
+  await act(async () =>
+    Array.from(operationHost.querySelectorAll("button"))
+      .find((n) => n.textContent === "Retry pending request")
+      .click(),
+  );
+  assert.equal(recoveryClose, 0);
+  assert.equal(
+    opLabel("What should be checked?").querySelector("textarea").value,
+    "New evidence note",
+  );
+  await act(async () =>
+    operationRoot.render(
+      React.createElement(OperationActivity, {
+        operations: [],
+        error: "Activity unavailable; refresh before another request",
+        data: draftData,
+        itemId: "",
+        onClearItem: () => {},
+        onEvidence: () => {},
+        onItem: () => {},
+      }),
+    ),
+  );
+  assert.match(
+    operationHost.querySelector('[role="alert"]').textContent,
+    /Activity unavailable/,
+  );
+  assert.doesNotMatch(operationHost.textContent, /No requests/);
+  await act(() => operationRoot.unmount());
+  operationHost.remove();
+  console.log(
+    "PASS nullable-listing activity, exact source request, same-account evidence, untrusted proof boundary, safe deep links, recoverable notes and explicit activity read errors",
+  );
+  const soldHost = document.createElement("div");
+  document.body.append(soldHost);
+  const soldRoot = createRoot(soldHost);
+  const soldItem = { ...base, status: "sold" };
+  const soldSource = {
+    ...source,
+    getResaleWorkbench: async () => ({ ...draftData, inventory: [soldItem] }),
+    getResaleOperations: async () => [{ ...operation, inventory_id: base.id }],
+  };
+  await act(async () =>
+    soldRoot.render(
+      React.createElement(Workbench, {
+        dataSource: soldSource,
+        mediaConnected: false,
+      }),
+    ),
+  );
+  await act(() =>
+    Array.from(soldHost.querySelectorAll("button"))
+      .find((n) => n.textContent.trim() === "Shop activity")
+      .click(),
+  );
+  await act(() =>
+    Array.from(soldHost.querySelectorAll("button"))
+      .find((n) => n.textContent.trim() === "Review physical item")
+      .click(),
+  );
+  assert.ok(
+    Array.from(soldHost.querySelectorAll(".wb-badge")).some(
+      (n) => n.textContent === "Sold",
+    ),
+  );
+  for (const name of [
+    "Edit item details",
+    "Prepare marketplace draft",
+    "Record sale",
+  ])
+    assert.equal(
+      Array.from(soldHost.querySelectorAll("button")).find(
+        (n) => n.textContent.trim() === name,
+      ).disabled,
+      true,
+      `${name} is disabled for sold physical item opened from activity`,
+    );
+  await act(() => soldRoot.unmount());
+  soldHost.remove();
+  console.log(
+    "PASS activity can inspect sold physical history without enabling fresh sale/draft/item writes",
   );
 } finally {
   dom.window.close();

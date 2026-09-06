@@ -135,7 +135,7 @@ export async function exportRecords() {
     'resale_item_details', 'resale_accounts', 'resale_snapshots', 'resale_listings',
     'resale_observations', 'resale_order_lines', 'resale_order_events', 'resale_media',
     'resale_review_cases', 'resale_actions', 'resale_action_attempts',
-    'resale_source_records', 'resale_listing_match_history', 'resale_listing_draft_history']
+    'resale_source_records', 'resale_listing_match_history', 'resale_listing_draft_history', 'resale_operation_proposals', 'resale_operation_verifications']
   const tables = Object.fromEntries(await Promise.all(names.map(async name => [name, await allRows(name, name === 'resale_item_details' ? 'inventory_id' : 'id')])))
   return { format: 'resale-record-export-v1', exported_at: new Date().toISOString(), tables }
 }
