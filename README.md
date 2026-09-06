@@ -1,8 +1,8 @@
 # Resale Tracker
 
-Paulette's existing Next.js/Supabase inventory, sales and expense app. This branch prepares approved-account login and a coordinated database access repair, with retained item links, atomic sale updates, correction history, source duplicate prevention and portable exports.
+Paulette's resale control center, built with Next.js, Supabase and private R2 photos. One physical item can have a separate listing on each shop, with shared facts and platform-specific preparation. Google sign-in protects resale and the separate genealogy workspace.
 
-**The Google-authenticated foundation is deployed; the new resale workbench migration is prepared locally and is not yet applied.** Read [the rollout and recovery runbook](docs/ROLLOUT.md) and [the resale data contract](docs/RESALE_DATA.md) before changing production. The protected genealogy interface is available at `/genealogy`.
+**The redesigned workbench, private photo service, historical marketplace staging, manual item matching and draft database are deployed. This branch adds guided draft preparation and a shared operations interface; its operations migration and interface are pending coordinated release. Continuous shop synchronization is not active yet.** Read [the rollout and recovery runbook](docs/ROLLOUT.md) and [the resale data contract](docs/RESALE_DATA.md) before changing production. The protected genealogy interface is available at `/genealogy`. See [draft preparation](docs/RESALE_DRAFTS.md) and [the shared operation contract](docs/RESALE_OPERATIONS.md) for exact implementation boundaries. A queued request or checked source record is not proof that a shop listing changed.
 
 ## Local development
 
