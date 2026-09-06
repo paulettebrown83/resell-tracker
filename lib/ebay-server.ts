@@ -32,7 +32,7 @@ export async function ebayStart(request: Request) {
     const url = new URL(result.authorization_url)
     if (url.origin !== 'https://auth.ebay.com' || url.pathname !== '/oauth2/authorize') throw Error('Invalid authorization response')
     return Response.json({ authorization_url: url.href }, { headers: { ...baseHeaders, 'Set-Cookie': cookie(binding, 600) } })
-  } catch { return Response.json({ error: 'eBay connection could not start. Check the feed setup and try again.' }, { status: 503, headers: baseHeaders }) }
+  } catch { return Response.json({ error: 'eBay connection could not start. Check the account setup and try again.' }, { status: 503, headers: baseHeaders }) }
 }
 export async function ebayCallback(request: Request) {
   let outcome = 'failed'

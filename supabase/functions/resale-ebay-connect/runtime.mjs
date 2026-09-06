@@ -1,3 +1,4 @@
+import {Buffer} from 'node:buffer';
 import {randomBytes} from 'node:crypto';
 import {SCOPE,CALLBACK,DELETION,EbayError,hash,bounded,identity,listingPage,orderPage,tradingBody,signatureHeader,verifyNotification} from './provider.mjs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,token=/^[A-Za-z0-9_-]{43}$/;

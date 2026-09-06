@@ -1,3 +1,4 @@
+import {Buffer} from 'node:buffer';
 import {XMLParser,XMLValidator} from 'fast-xml-parser';
 import {createHash,createPublicKey,verify} from 'node:crypto';
 export const SCOPE='https://api.ebay.com/oauth/api_scope';

@@ -39,3 +39,7 @@ Agents close their own test tabs/processes and remove disposable fixture resourc
 - [Official verifier/test fixture](https://github.com/eBay/event-notification-nodejs-sdk/tree/feaf3378ca263a81432cf5b8c8a6fd8cb3d3e2f3).
 
 REST Identity/Fulfillment overviews are current, but their old method URLs redirected to overviews and direct official spec/Markdown downloads returned403 during this pass. No restrictions on app eligibility were inferred from those transport failures. The documented Trading path was selected instead of inventing REST schemas.
+
+## Local verification
+
+`npm run test:ebay` covers provider/proxy and SQL-role fixtures. `npm run test:ebay-concurrency` starts a disposable native PostgreSQL server and verifies buyer deletion against an in-flight finalization. The provider suite also passed in Deno2.9.6 with the committed import map/lock. This is local compatibility evidence; it does not replace actual hosted Edge, OAuth or Seller Hub acceptance. Full application tests, typecheck, lint and a build with public configuration passed before rollout.
