@@ -23,4 +23,4 @@ The service-only admin preparation must commit before a separate signed Worker d
 
 ## Release status
 
-Implementation and fixture acceptance are under review. Production migration, Worker deployment, actual retained Posh cover capture, and authenticated viewer acceptance have not yet been recorded. Mercari exact source URLs remain pending native capture. No background marketplace photo scraper or full-gallery claim is installed.
+PR16 adds the listing-photo panel. The production schema is recorded as20260906093257; the private Worker captured the exact pilot cover on2026-09-06 at09:34:05Z (333,216 JPEG bytes). An exact request retry reused the same saved checksum. All33 preexisting-table fingerprints remained unchanged. Authenticated viewer acceptance is recorded separately in the private release evidence. Mercari exact source URLs remain pending native capture. No background marketplace photo scraper or full-gallery claim is installed.
