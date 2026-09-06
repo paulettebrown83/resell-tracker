@@ -362,6 +362,38 @@ try {
   console.log(
     "PASS photo queue stops on uncertainty, retries exact File/ID, and continues sequentially",
   );
+  const realTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (fn, ms, ...args) => realTimeout(fn, ms === 30_000 ? 10 : ms, ...args);
+  try {
+    let refreshAttempts = 0;
+    const refreshCalls = [];
+    const refreshApi = { ...api, uploadOriginal: async intent => {
+      refreshCalls.push(intent);
+      if (refreshAttempts++ === 0) throw new Error("Reserving this photo timed out. Retry the same original.");
+      return { id: intent.requestId, state: "ready" };
+    }};
+    await act(async () => root.render(React.createElement(PhotoLibrary, {
+      key: "hung-refresh", inventory: [base], media: [], selectedId: base.id,
+      onSelect: () => {}, onSaved: () => new Promise(() => {}), api: refreshApi, connected: true,
+    })));
+    const input = document.querySelector('input[type="file"]');
+    Object.defineProperty(input, "files", { configurable: true, value: [first] });
+    await act(async () => {
+      input.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+      await new Promise(resolve => realTimeout(resolve, 25));
+    });
+    assert.equal(button("Retry unconfirmed uploads").disabled, false, "Hung list refresh cannot hide retry");
+    assert.match(document.body.textContent, /photo list could not refresh/);
+    await act(async () => {
+      button("Retry unconfirmed uploads").click();
+      await new Promise(resolve => realTimeout(resolve, 25));
+    });
+    assert.equal(refreshCalls[0], refreshCalls[1], "Refresh failure retains exact retry identity and bytes");
+    assert.match(document.body.textContent, /Originals saved/);
+    assert.match(document.body.textContent, /Saved uploads stay saved/);
+    assert.equal(button("Add original photos").disabled, false);
+    console.log("PASS hung list refresh reveals retry and preserves successful original state");
+  } finally { globalThis.setTimeout = realTimeout; }
   await act(async () =>
     root.render(
       React.createElement(PhotoLibrary, {

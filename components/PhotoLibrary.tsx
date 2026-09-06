@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Icon from "./WorkbenchIcon";
+import { mediaStage } from "@/lib/media-stage";
 import type { InventoryItem } from "@/lib/supabase";
 import type { ResaleMedia } from "@/lib/resale-contract";
 import {
@@ -189,7 +190,13 @@ export default function PhotoLibrary({
           break;
         }
       }
-      if (mounted.current) await onSaved();
+      if (mounted.current) {
+        try {
+          await mediaStage("Refreshing the photo library", abort.current.signal, () => onSaved());
+        } catch {
+          if (mounted.current) setError("The photo list could not refresh. Saved uploads stay saved. Retry unconfirmed uploads, or use Refresh records to check the list.");
+        }
+      }
     } finally {
       lock.current = false;
       if (mounted.current) setBusy(false);
