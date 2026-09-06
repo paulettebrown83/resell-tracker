@@ -26,7 +26,8 @@ try{
  await role('authenticated',owner);let claim=await rpc('resale_claim_package',[request]);await deny(()=>rpc('resale_claim_package',[request]),'55P03');await deny(()=>rpc('resale_discard_package',[request,false]),'55P03')
  const name=`${request}/photo-0.jpg`,artifact={name,sha256:'b'.repeat(64),byte_size:20,width:10,height:10,media_id:photo}
  const storageOp=op=>db.query("select set_config('storage.operation',$1,false)",[op])
- await storageOp('object.upload');await db.query("insert into storage.objects(bucket_id,name,metadata) values('resale-listing-packages',$1,'{\"size\":20}')",[name])
+ for(const op of ['object.sign_upload_url','object.upload_signed','s3.upload','object.copy','tus.upload.create']){await storageOp(op);await deny(()=>db.query("insert into storage.objects(bucket_id,name,metadata) values('resale-listing-packages',$1,'{\"size\":20}')",[name]),'42501')}
+ await storageOp('storage.object.upload');await db.query("insert into storage.objects(bucket_id,name,metadata) values('resale-listing-packages',$1,'{\"size\":20}')",[name])
  await deny(()=>db.query("insert into storage.objects(bucket_id,name,metadata) values('resale-listing-packages',$1,'{}')",[`${request}/../escape.jpg`]),'42501')
  await deny(()=>db.query("insert into storage.objects(bucket_id,name,metadata) values('resale-listing-packages',$1,'{}')",[`${request}/photo-1.jpg`]),'42501')
  await storageOp('object.get_authenticated');assert.equal((await db.query('select * from storage.objects')).rows.length,1)
@@ -36,7 +37,7 @@ try{
  await deny(()=>rpc('resale_checkpoint_package',[request,claim.lease_token,{...artifact,media_id:uuid()}]),'22023')
  const checkpoint=await rpc('resale_checkpoint_package',[request,claim.lease_token,artifact]);assert.equal(checkpoint.completed_images,1);assert.equal(checkpoint.state,'pending')
  await deny(()=>rpc('resale_checkpoint_package',[request,claim.lease_token,artifact]),'40001')
- claim=await rpc('resale_claim_package',[request]);const outputs={}
+ claim=await rpc('resale_claim_package',[request]);const outputs={};await storageOp('object.upload')
  for(const[k,suffix]of[['csv','listings.csv'],['zip','photos.zip'],['manifest','manifest.json']]){outputs[k]={name:`${request}/${suffix}`,byte_size:30,sha256:'c'.repeat(64)};await db.query("insert into storage.objects(bucket_id,name,metadata) values('resale-listing-packages',$1,'{\"size\":30}')",[outputs[k].name])}
  const ready=await rpc('resale_finish_package',[request,claim.lease_token,outputs,null]);assert.equal(ready.state,'ready')
  await storageOp('object.get_authenticated');assert.equal((await db.query('select * from storage.objects')).rows.length,4)

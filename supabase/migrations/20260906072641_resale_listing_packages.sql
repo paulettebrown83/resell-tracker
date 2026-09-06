@@ -142,7 +142,7 @@ do $$ begin
  if not exists(select 1 from storage.buckets where id='resale-listing-packages' and public=false and file_size_limit=67108864 and allowed_mime_types=array['image/jpeg','application/zip','text/csv','application/json']) then raise exception 'Existing package bucket configuration requires review';end if;
 end $$;
 create policy resale_package_insert on storage.objects for insert to authenticated
- with check(bucket_id='resale-listing-packages' and private.resale_package_storage_allowed(name,true));
+ with check(bucket_id='resale-listing-packages' and private.resale_package_storage_allowed(name,true) and storage.allow_only_operation('object.upload'));
 create policy resale_package_read on storage.objects for select to authenticated
  using(bucket_id='resale-listing-packages' and private.resale_package_storage_allowed(name,false) and storage.allow_only_operation('object.get_authenticated'));
 
