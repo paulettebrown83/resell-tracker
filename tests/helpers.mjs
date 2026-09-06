@@ -5,7 +5,8 @@ import { readFile, readdir } from 'node:fs/promises'
 export async function baseline() {
   const db = new PGlite({ extensions: { vector, pgcrypto } })
   await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
-    create schema auth; create schema extensions;     create table auth.users (id uuid primary key);
+    create schema auth; create schema extensions;
+    create table auth.users (id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     create function auth.role() returns text language sql stable as $$ select current_user::text $$;
     grant usage on schema auth,public to anon,authenticated,service_role;
