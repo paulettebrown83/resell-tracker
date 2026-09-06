@@ -1,0 +1,9 @@
+{
+  "$schema":"node_modules/wrangler/config-schema.json",
+  "name":"paulette-resale-gmail-tick-prod",
+  "main":"worker.mjs",
+  "compatibility_date":"2026-09-06",
+  "workers_dev":false,
+  "triggers":{"crons":["*/5 * * * *"]},
+  "vars":{"GMAIL_EDGE_URL":"https://YOUR_PROJECT.supabase.co/functions/v1/resale-gmail-sync"}
+}

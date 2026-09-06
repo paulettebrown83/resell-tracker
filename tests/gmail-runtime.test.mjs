@@ -1,0 +1,71 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {parseVintedMessage} from '../supabase/functions/resale-gmail-sync/parser.mjs';
+import {startOAuth,completeOAuth,runTick,nextWindow,createHandler,GMAIL_SCOPE,CALLBACK,FeedError,createServices} from '../supabase/functions/resale-gmail-sync/runtime.mjs';
+import {sha256,signHex} from '../supabase/functions/resale-gmail-sync/crypto.mjs';
+const id='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
+const key='ab'.repeat(32),now=1800000000000,client='123456789-example.apps.googleusercontent.com';
+// Synthetic identities; body phrases/HTML roles derive from two private observed Vinted MIME samples.
+const sale='<p>Hello synthetic_seller,</p><p>synthetic_buyer has bought</p><img alt="Synthetic cotton shirt"><p>$7.00</p><p>We will transfer the buyer&#39;s payment to your Vinted Wallet once the order is completed.</p><a href="https://www.vinted.com/inbox/987654321">message thread</a>';
+function message(html=sale,subject='You sold an item on Vinted',messageId='abcdef123') {return {id:messageId,threadId:'abcdef456',internalDate:String(now-120000),payload:{mimeType:'text/html',headers:[{name:'From',value:'Team Vinted <no-reply@vinted.com>'},{name:'Subject',value:subject},{name:'Authentication-Results',value:'mx.google.com; dkim=pass header.i=@vinted.com header.s=sample; dmarc=pass header.from=vinted.com'}],body:{data:Buffer.from(html).toString('base64url')}}};}
+test('real-template-derived parser separates sale/label, no buyer/tracking/money allocation',async()=>{
+ const parsed=await parseVintedMessage(message(),'synthetic_seller');assert.equal(parsed.kind,'sale_notification');assert.equal(parsed.normalized.parser_status,'recognized');assert.equal(parsed.normalized.order_id,null);assert.equal(parsed.normalized.listing_id,null);assert.equal(parsed.normalized.money_mentions[0].meaning,'unallocated');assert.equal(parsed.normalized.money_mentions[0].currency_code,null);assert.equal(JSON.stringify(parsed).includes('synthetic_buyer'),false);
+ const shipping=await parseVintedMessage(message('Hello synthetic_seller, Your shipping label is attached to this message. Shipping information Transaction ID: 123456789 Tracking code: 999999999999','Synthetic shirt shipping label – use by 10/20/2027 01:00 PM'),'synthetic_seller');assert.equal(shipping.kind,'shipping_notification');assert.equal(shipping.normalized.transaction_id,'123456789');assert.equal(shipping.normalized.order_id,null);assert.equal(JSON.stringify(shipping).includes('999999999999'),false);
+});
+test('subject alone, wrong account/sender/auth, malformed MIME and unknown templates quarantine',async()=>{
+ for(const [m,handle,reason] of [[message('Hello synthetic_seller, harmless'),'synthetic_seller','unrecognized_template'],[message(),'other_seller','mailbox_account_mismatch'],[message(sale.replace('has bought','has browsed')),'synthetic_seller','unrecognized_template']]){const p=await parseVintedMessage(m,handle);assert.equal(p.kind,'unknown');assert.equal(p.normalized.quarantine_reason,reason);}
+ const forged=message();forged.payload.headers[2].value='mx.google.com; dkim=fail header.i=@vinted.com; dmarc=fail header.from=vinted.com';assert.equal((await parseVintedMessage(forged,'synthetic_seller')).normalized.quarantine_reason,'sender_authentication');
+ const malformed=message();malformed.payload.body.data='not valid base64!';assert.equal((await parseVintedMessage(malformed,'synthetic_seller')).normalized.quarantine_reason,'unsupported_body');
+});
+test('navigation decoding never fetches URLs and only retains exact Vinted conversation IDs',async()=>{
+ const encoded=Buffer.from('https://www.vinted.com/inbox/123456?tracking=private|private').toString('base64url');
+ const p=await parseVintedMessage(message(sale.replace('https://www.vinted.com/inbox/987654321',`https://links.vinted.com/t/${encoded}`)+'<a href="https://www.vinted.com.evil.test/inbox/222">bad</a>'),'synthetic_seller');assert.deepEqual(p.normalized.conversation_ids,['123456']);assert.equal(JSON.stringify(p).includes('tracking'),false);
+ const first=await parseVintedMessage(message(),'synthetic_seller'),second=await parseVintedMessage({...message(),labelIds:['READ'],historyId:'changed'},'synthetic_seller');assert.equal(first.source_sha256,second.source_sha256);
+});
+function oauthServices(){let state,consumed=false,saved;return {
+ user:async bearer=>{if(bearer!=='Bearer member')throw new FeedError('access_denied',401);return id;},
+ rpc:async(name,args)=>{if(name==='resale_gmail_oauth_start'){state=args;return {state_id:other,client_id:client,redirect_uri:CALLBACK,expected_mailbox:'paulettebrown83@gmail.com'};}if(name==='resale_gmail_oauth_consume'){assert.equal(args.p_state_sha256,state.p_state_sha256);assert.equal(args.p_browser_binding_sha256,state.p_browser_binding_sha256);if(consumed)throw new FeedError('access_denied',403);consumed=true;return {state_id:other,client_id:client,redirect_uri:CALLBACK,expected_mailbox:'paulettebrown83@gmail.com',code_verifier:state.p_code_verifier,client_secret:'synthetic-client-secret'};}if(name==='resale_gmail_oauth_complete'){saved=args;return {feed_id:id,status:'active'};}throw Error('unexpected RPC');},
+ googleToken:async args=>{assert.equal(args.code_verifier,state.p_code_verifier);return {access_token:'synthetic-access',token_type:'Bearer',scope:GMAIL_SCOPE,refresh_token:'synthetic-refresh'};},
+ profile:async()=>({emailAddress:'paulettebrown83@gmail.com'}),getState:()=>state,getSaved:()=>saved};}
+test('OAuth random member-bound state, PKCE, exact readonly scope, one-use callback and no returned credentials',async()=>{
+ const s=oauthServices(),binding='a'.repeat(43);await assert.rejects(()=>startOAuth({feed_id:id,browser_binding:binding},null,s));
+ const started=await startOAuth({feed_id:id,browser_binding:binding},'Bearer member',s),url=new URL(started.authorization_url);assert.equal(url.searchParams.get('scope'),GMAIL_SCOPE);assert.equal(url.searchParams.get('redirect_uri'),CALLBACK);assert.equal(url.searchParams.get('code_challenge_method'),'S256');assert.equal(s.getState().p_member_id,id);assert.equal(s.getState().p_browser_binding_sha256,await sha256(binding));assert.notEqual(s.getState().p_state_sha256,url.searchParams.get('state'));
+ const input={state:url.searchParams.get('state'),browser_binding:binding,code:'synthetic-code'};
+ const result=await completeOAuth(input,s);assert.deepEqual(result,{status:'active',feed_id:id});assert.equal(s.getSaved().p_refresh_token,'synthetic-refresh');assert.equal(JSON.stringify(result).includes('secret'),false);await assert.rejects(()=>completeOAuth(input,s));
+});
+test('OAuth wrong mailbox or expanded scope never stores tokens',async()=>{
+ for(const problem of ['mailbox','scope']){const s=oauthServices(),binding='b'.repeat(43),start=await startOAuth({feed_id:id,browser_binding:binding},'Bearer member',s);if(problem==='mailbox')s.profile=async()=>({emailAddress:'wrong@example.test'});else s.googleToken=async()=>({access_token:'synthetic-access',token_type:'Bearer',scope:`${GMAIL_SCOPE} https://www.googleapis.com/auth/gmail.send`});await assert.rejects(()=>completeOAuth({state:new URL(start.authorization_url).searchParams.get('state'),browser_binding:binding,code:'code'},s));assert.equal(s.getSaved(),undefined);}
+});
+function polling(){const records=new Map(),events=[];let cursor=null,failAfterCommit=false,failOnce=false;const lease={feed_id:id,member_id:other,account_id:other,mailbox_email:'paulettebrown83@gmail.com',account_handle:'synthetic_seller',parser_version:'vinted-gmail-v1',lease_token:other,client_id:client,client_secret:'synthetic-client',refresh_token:'synthetic-refresh',ingress_signing_key:key};return {
+ records,events,
+ rpc:async(name,args)=>{events.push({name,args});if(name==='resale_gmail_verify_tick_and_claim')return {...lease,cursor};if(name==='resale_gmail_checkpoint_run'){cursor=args.p_cursor;return null;}if(name==='resale_gmail_finish_run'){cursor=args.p_cursor;return null;}if(name==='resale_ingest_gmail_message'){assert.equal(args.p_signature,await signHex(key,`gmail_ingest_v1\n${args.p_receipt}`));const r=JSON.parse(args.p_receipt);const old=records.get(r.message_id);if(old)assert.equal(old.source_sha256,r.source_sha256);else records.set(r.message_id,r);if(failAfterCommit&&!failOnce){failOnce=true;throw new FeedError('network_error');}return {duplicate:Boolean(old)};}throw Error('unexpected RPC');},
+ googleToken:async()=>({access_token:'synthetic-access',token_type:'Bearer',scope:GMAIL_SCOPE}),profile:async()=>({emailAddress:lease.mailbox_email}),
+ list:async()=>({messages:[{id:'abcdef123'}]}),message:async()=>message(),setLostResponse:()=>{failAfterCommit=true;},getCursor:()=>cursor,
+ };}
+const tick={tick:JSON.stringify({v:1,nonce:id,expires_at:Math.floor(now/1000)+120}),signature:'ab'.repeat(32)};
+test('bounded partial-page progress resumes fixed window and advances only final completed page',async()=>{
+ const s=polling(),queries=[];s.list=async(_a,q,page)=>{queries.push({q,page});return page?{messages:[{id:'abcdef124'}]}:{messages:[{id:'abcdef123'}],nextPageToken:'next-page'};};s.message=async(_a,id)=>message(sale,undefined,id);
+ assert.equal((await runTick(tick,s,()=>now)).status,'partial');const first=s.getCursor();assert.equal(first.window_complete,false);assert.equal(first.page_token,'next-page');assert.equal((await runTick(tick,s,()=>now+300000)).status,'complete');assert.equal(queries[0].q,queries[1].q);assert.equal(s.records.size,2);assert.equal(s.getCursor().window_complete,true);
+ const next=nextWindow(s.getCursor(),now+600000);assert.equal(next.window_start_ms,first.window_end_ms-300000);assert.equal(next.window_complete,false);
+});
+test('uncertain ingress response retries same window/message with no second source',async()=>{const s=polling();s.setLostResponse();assert.equal((await runTick(tick,s,()=>now)).status,'retry');assert.equal(s.getCursor().window_complete,false);assert.equal((await runTick(tick,s,()=>now+300000)).status,'complete');assert.equal(s.records.size,1);});
+test('invalid grant/revocation/rotation pauses without message reads',async()=>{for(const code of ['invalid_grant','access_denied','refresh_token_rotation']){const s=polling();s.googleToken=async()=>{throw new FeedError(code);};let reads=0;s.message=async()=>{reads++;};assert.equal((await runTick(tick,s,()=>now)).status,'reconnect_required');assert.equal(reads,0);assert.equal(s.records.size,0);}});
+test('tick rejection does not request Google credentials and malformed public requests stay opaque',async()=>{const s=polling();s.rpc=async()=>{throw new FeedError('access_denied',403);};s.googleToken=async()=>{throw Error('must not run');};await assert.rejects(()=>runTick(tick,s,()=>now));const handler=createHandler(s);const response=await handler(new Request('https://example.test',{method:'POST',body:JSON.stringify({op:'callback',code:'sensitive'})}));assert.equal(response.status,400);assert.equal((await response.text()).includes('sensitive'),false);assert.equal(response.headers.get('Cache-Control'),'no-store');});
+test('upstream transport does not follow redirects or put new service keys in bearer headers',async()=>{const requests=[];const services=createServices({SUPABASE_URL:'https://synthetic.supabase.co',SUPABASE_SECRET_KEYS:JSON.stringify({default:'sb_secret_synthetic'}),SUPABASE_PUBLISHABLE_KEYS:JSON.stringify({default:'sb_publishable_synthetic'})},async(url,init)=>{requests.push({url,init});return Response.json({ok:true});});await services.rpc('resale_gmail_checkpoint_run',{});assert.equal(requests[0].init.redirect,'manual');assert.equal(requests[0].init.headers.Authorization,undefined);assert.equal(requests[0].init.headers.apikey,'sb_secret_synthetic');});
+test('PostgREST void checkpoint/finish accept 204 while empty Google responses fail closed',async()=>{
+ const services=createServices({SUPABASE_URL:'https://synthetic.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'synthetic-jwt',SUPABASE_ANON_KEY:'synthetic-public'},async()=>new Response(null,{status:204}));
+ assert.equal(await services.rpc('resale_gmail_checkpoint_run',{}),null);assert.equal(await services.rpc('resale_gmail_finish_run',{}),null);await assert.rejects(()=>services.profile('synthetic-access'),/invalid_response/);
+});
+test('slow successful reads make durable within-page progress across ticks',async()=>{
+ const s=polling();let time=now,listCalls=0;const ids=Array.from({length:25},(_,i)=>(0xabc00+i).toString(16));
+ s.list=async()=>{listCalls++;return {messages:ids.map(id=>({id}))};};s.message=async(_a,id)=>{time+=4000;return message(sale,undefined,id);};
+ const outcomes=[];for(let i=0;i<3;i++){outcomes.push(await runTick(tick,s,()=>time));time+=300000;}
+ assert.deepEqual(outcomes.map(x=>x.status),['partial','partial','complete']);assert.equal(s.records.size,25);assert.equal(listCalls,1);assert.equal(s.getCursor().window_complete,true);
+});
+test('permanently missing or unreadable message pauses visibly without dropping pending identity',async()=>{
+ for(const error of ['message_unavailable','message_unreadable']){const s=polling();s.message=async()=>{throw new FeedError(error);};assert.equal((await runTick(tick,s,()=>now)).status,'paused');assert.deepEqual(s.getCursor().pending_message_ids,['abcdef123']);assert.equal(s.getCursor().window_complete,false);assert.equal(s.records.size,0);assert.equal(s.events.at(-1).args.p_error_code,error);}
+});
+test('scheduler signs only a narrow tick and exposes no public execution route',async()=>{
+ const worker=(await import('../workers/resale-gmail-tick/worker.mjs')).default,original=globalThis.fetch;let call;
+ try{globalThis.fetch=async(url,options)=>{call={url,options};return Response.json({status:'idle'});};await worker.scheduled({}, {GMAIL_TICK_SIGNING_KEY:key,GMAIL_EDGE_URL:'https://synthetic.supabase.co/functions/v1/resale-gmail-sync'});const body=JSON.parse(call.options.body);assert.equal(body.signature,await signHex(key,`gmail_tick_v1\n${body.tick}`));assert.deepEqual(Object.keys(JSON.parse(body.tick)).sort(),['expires_at','nonce','v']);assert.equal(call.options.headers.Authorization,undefined);assert.equal(call.options.redirect,'manual');assert.equal(worker.fetch().status,404);}finally{globalThis.fetch=original;}
+});
