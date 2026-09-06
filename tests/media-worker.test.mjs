@@ -19,6 +19,9 @@ function setup(t, overrides={}) {
  }};
  const original=globalThis.fetch;
  globalThis.fetch=async (url,options)=>{
+  // Match workerd's supported redirect modes; Node's fetch also accepts unsupported edge 'error'.
+  assert.ok(['manual','follow'].includes(options.redirect));
+  assert.equal(options.redirect,'manual');
   assert.equal(options.headers.apikey,'sb_publishable_test');
   assert.equal(options.headers.Authorization,'Bearer good');
   if(url.endsWith('/auth/v1/user'))return Response.json({id,is_anonymous:false});
@@ -100,4 +103,11 @@ test('membership revocation denies subsequent image fetch even with same token',
  assert.equal((await worker.fetch(s.request('GET'),s.env)).status,200);
  globalThis.fetch=async url=>Response.json(url.endsWith('/user')?{id}:false);
  assert.equal((await worker.fetch(s.request('GET'),s.env)).status,403);
+});
+
+test('upstream redirects fail closed without forwarding bearer credentials',async t=>{
+ const s=setup(t);let requests=0;
+ globalThis.fetch=async (url,options)=>{requests++;assert.equal(options.redirect,'manual');return new Response(null,{status:302,headers:{Location:'https://untrusted.example'}})};
+ const response=await worker.fetch(s.request(),s.env);assert.equal(response.status,503);assert.equal(requests,1);assert.equal(s.calls.length,0);
+ assert.deepEqual(await response.json(),{error:'Photo authorization is temporarily unavailable.'});
 });

@@ -46,3 +46,7 @@ Before marking storage connected: deploy reviewed schema + Worker secret/binding
 - [Workers Web Crypto](https://developers.cloudflare.com/workers/runtime-apis/web-crypto/)
 - [Supabase server-verified getUser](https://supabase.com/docs/reference/javascript/auth-getuser)
 - [Supabase changelog](https://supabase.com/changelog) (markdown endpoint failed; HTML index reviewed)
+
+## Edge runtime redirect compatibility
+
+Hosted invalid-token verification exposed an edge-only fetch failure on September 6, 2026: workerd rejects `redirect: 'error'` even though the current Request documentation lists it. Reproduced with Miniflare `5.20260903.0-alpha` / its bundled workerd using only an invalid bearer and a synthetic receipt key. Worker upstream requests therefore use `redirect: 'manual'`; every 3xx is rejected by the normal non-OK response check and credentials are never forwarded to a redirect target. Browser fetch remains `redirect: 'error'`, which is supported there. Node unit boundary now enforces edge-supported modes and tests redirect denial. No public debugging endpoint, exception log, or production secret was used.

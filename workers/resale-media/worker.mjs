@@ -34,8 +34,9 @@ async function boundedBody(request, expected, max) {
   return bytes;
 }
 async function api(env, token, path, options = {}) {
+  // Workers only supports manual/follow. Never follow upstream redirects with bearer credentials.
   const response = await fetch(`${env.SUPABASE_URL}${path}`, {
-    ...options, redirect: 'error', signal: AbortSignal.timeout(10000),
+    ...options, redirect: 'manual', signal: AbortSignal.timeout(10000),
     headers: {'apikey': env.SUPABASE_PUBLISHABLE_KEY, 'Authorization': token, 'Content-Type': 'application/json', ...options.headers},
   });
   if (!response.ok) fail(response.status === 401 || response.status === 403 ? 401 : 503, response.status === 401 || response.status === 403 ? 'Sign in again to access photos.' : 'Photo authorization is temporarily unavailable.');
