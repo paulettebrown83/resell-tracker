@@ -3,3 +3,8 @@
 # Google callback and signed scheduler ticks cannot supply a Supabase user JWT.
 verify_jwt = false
 entrypoint = "./functions/resale-gmail-sync/index.mjs"
+
+[functions.resale-ebay-connect]
+verify_jwt = false
+entrypoint = "./functions/resale-ebay-connect/index.mjs"
+import_map = "./functions/resale-ebay-connect/deno.json"

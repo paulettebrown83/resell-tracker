@@ -141,6 +141,7 @@ export function MarketplaceViews({
                 </span>
               </div>
               <h2>{name}</h2>
+              {name.toLowerCase() === "ebay" && <a className="wb-text-button" href="/integrations/ebay">eBay connection &amp; read status →</a>}
               <div className="wb-marketplace-count">
                 <strong>
                   {
