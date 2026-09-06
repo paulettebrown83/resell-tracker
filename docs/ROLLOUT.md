@@ -1,6 +1,6 @@
 # Secure resale foundation rollout
 
-Status: foundation PR #1 merged under the production deployment hold; Google login and genealogy compatibility are prepared for review. Database migrations **not applied to production**. Google bootstrap may create the approved Auth identity, but cannot grant data access before migration and explicit membership. Previews inherit public database configuration; all application write paths are disabled in Vercel preview builds, including pending retries. Existing production exposure remains until coordinated cutover. The migrations deliberately deny old unauthenticated clients.
+Status: coordinated production cutover completed September 6, 2026. Google login and the compatible genealogy interface are live. Both reviewed database migrations are applied, the sole approved verified Google identity has resale and genealogy memberships, and new signup is closed. Hosted rollback-only authorization and sale lifecycle checks passed; signed-out REST/RPC and GraphQL access was denied. Every original field across all 800 records was preserved. Production Google login with signup closed loaded all 218 sales and all 49 genealogy records. Previews continue to block application writes. The migrations deny old unauthenticated clients; use `/genealogy` for the protected research interface.
 
 ## What is owned here
 
@@ -10,9 +10,11 @@ The browser has only a public Supabase URL and publishable key (legacy anon key 
 
 ## Merge and deployment hold
 
-`vercel.json` disables automatic Git deployment for `main` while the coordinated Auth/database rollout is incomplete. Feature-branch previews remain enabled. Merging this PR must not replace the existing production deployment. After merge, verify `resell-tracker-beta.vercel.app` still resolves to the recorded production deployment; do not manually deploy `main` to production before completing the gates below.
+The temporary automatic deployment hold is removed after the successful coordinated cutover. Feature branches still receive previews, and merging reviewed changes to `main` once again deploys production. Never promote a preview build to bypass its intentional write restrictions; production requires a build made with the production environment.
 
-When the new login, approved accounts, migration and affected clients pass hosted acceptance checks, prepare a production build without moving domains, perform the coordinated cutover, and verify it before restoring automatic main deployments. Restore by removing only `git.deploymentEnabled.main` from `vercel.json` in a reviewed follow-up. Main deployments remain intentionally held until that follow-up; this is not a database-security fix by itself.
+Reviewed application commit `72f429f44a55474d0665e3790a899368e73b2777` was built for production as `dpl_G2iqgxvaq315xW8aQGsfzs28VsjG`, then promoted after the database checks. PR #2 merged as `6c882d52497b99b859b03f8b9b93cb36fb6b79b1`; its later source change was recovery documentation only. The hosted migration API assigned ledger versions `20260906022334` (`secure_resale_foundation`) and `20260906022352` (`genealogy_access_compatibility`) to the exact reviewed SQL. Do not replay those migrations because local filenames have earlier preparation timestamps.
+
+The remaining sections record the cutover requirements and recovery procedure for future changes. The original local genealogy file and bookmark were preserved: browser security prevented editing the bookmark manager. Open the secure `/genealogy` URL directly.
 
 [Official Vercel Git deployment configuration](https://vercel.com/docs/project-configuration/git-configuration) was checked September 6, 2026.
 
