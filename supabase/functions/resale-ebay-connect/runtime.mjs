@@ -33,8 +33,18 @@ export async function read(input,bearer,s){if(!uuid.test(input.account_id||'')||
  return await s.rpc('resale_ebay_finish_read',{...args,p_result:{...parsed,source_sha256:hash(raw),window_from:claim.window_from,window_to:claim.window_to},p_error:null});
  }catch(e){const code=e instanceof EbayError?e.code:'read_failed';await s.rpc('resale_ebay_finish_read',{...args,p_result:null,p_error:code});throw new EbayError(code,409);}
 }
+export async function listingRun(input,bearer,s){
+ if(!uuid.test(input.run_id||'')||!['listing_run_start','listing_run_step'].includes(input.op))throw new EbayError('invalid_listing_run',400);
+ const member=await s.user(bearer);
+ if(input.op==='listing_run_start'){if(!uuid.test(input.account_id||''))throw new EbayError('invalid_listing_run',400);return {run:await s.rpc('resale_ebay_start_listing_run',{p_member_id:member,p_account_id:input.account_id,p_run_id:input.run_id})};}
+ const claim=await s.rpc('resale_ebay_claim_listing_run',{p_member_id:member,p_run_id:input.run_id});
+ if(!claim.request)return {run:claim.run};
+ // SQL chooses the immutable page request. Cached read receipts survive an interrupted checkpoint.
+ await read(claim.request,bearer,s);
+ return {run:await s.rpc('resale_ebay_checkpoint_listing_run',{p_member_id:member,p_run_id:input.run_id,p_read_id:claim.request.request_id})};
+}
 export async function deletion(input,s){const c=await s.rpc('resale_ebay_deletion_config',{});if(c.deletion_endpoint!==DELETION)throw new EbayError('setup_required',409);if(input.challenge_code!==undefined){if(!/^[A-Za-z0-9_-]{1,200}$/.test(input.challenge_code)||!/^[A-Za-z0-9_-]{32,80}$/.test(c.verification_token||''))throw new EbayError('invalid_challenge',400);return {challengeResponse:hash(input.challenge_code+c.verification_token+DELETION)};}
  const signature=signatureHeader(input.signature),notice=verifyNotification(input.message,signature,await s.publicKey(c,signature.kid));
  await s.rpc('resale_ebay_deletion_receive',{p_notice:notice});return {status:'received',erasure:'review_pending'};
 }
-export function createHandler(s){return async request=>{try{if(request.method!=='POST')return json({error:'method_not_allowed'},405);const input=JSON.parse(await bounded(request,65536));if(input.op==='start')return json(await start(input,request.headers.get('Authorization'),s));if(input.op==='callback')return json(await callback(input,s));if(input.op==='read')return json(await read(input,request.headers.get('Authorization'),s));if(input.op==='deletion')return json(await deletion(input,s));throw new EbayError('unsupported_operation',400);}catch(e){return json({error:e instanceof EbayError?e.code:'request_failed'},e instanceof EbayError?e.status:503);}};}
+export function createHandler(s){return async request=>{try{if(request.method!=='POST')return json({error:'method_not_allowed'},405);const input=JSON.parse(await bounded(request,65536));if(input.op==='start')return json(await start(input,request.headers.get('Authorization'),s));if(input.op==='callback')return json(await callback(input,s));if(input.op==='read')return json(await read(input,request.headers.get('Authorization'),s));if(input.op==='listing_run_start'||input.op==='listing_run_step')return json(await listingRun(input,request.headers.get('Authorization'),s));if(input.op==='deletion')return json(await deletion(input,s));throw new EbayError('unsupported_operation',400);}catch(e){return json({error:e instanceof EbayError?e.code:'request_failed'},e instanceof EbayError?e.status:503);}};}

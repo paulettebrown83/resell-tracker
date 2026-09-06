@@ -72,3 +72,13 @@ export async function ebayDeletion(request: Request) {
     return new Response(null,{status:202,headers:baseHeaders})
   }catch(error){return Response.json({error:'Notice not accepted'},{status:error instanceof Error && 'status' in error && error.status===412?412:503,headers:baseHeaders})}
 }
+
+export async function ebayListingRun(request: Request) {
+  if (!enabled(request) || request.headers.get('Origin') !== ORIGIN) return Response.json({error:'Use the production tracker.'},{status:403,headers:baseHeaders})
+  const bearer=request.headers.get('Authorization')||''
+  if(!/^Bearer [^\s]+$/.test(bearer))return Response.json({error:'Sign in first.'},{status:401,headers:baseHeaders})
+  try {const raw=await request.text();if(raw.length>512)throw Error('Too large');const input=JSON.parse(raw)
+    if(!['listing_run_start','listing_run_step'].includes(input.op)||Object.keys(input).some(key=>!['op','account_id','run_id'].includes(key)))throw Error('Invalid request')
+    return Response.json(await edge(input,bearer),{headers:baseHeaders})
+  }catch{return Response.json({error:'The listing read paused. Resume the saved run after checking connection status.'},{status:409,headers:baseHeaders})}
+}

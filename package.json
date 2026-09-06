@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs && node tests/resale-workbench.test.mjs && node tests/resale-source-records.test.mjs && npm run test:media && node tests/intake-retry.test.mjs && node tests/workbench-ui.test.mjs && node tests/match-retry.test.mjs && node tests/resale-matching.test.mjs && npm run test:drafts && node tests/resale-operations.test.mjs && node tests/draft-retry.test.mjs && node tests/operation-retry.test.mjs && npm run test:gmail-runtime && npm run test:gmail-db && npm run test:pricing && npm run test:packages && npm run test:listing-reference && npm run test:listing-refresh && npm run test:ebay",
+    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs && node tests/resale-workbench.test.mjs && node tests/resale-source-records.test.mjs && npm run test:media && node tests/intake-retry.test.mjs && node tests/workbench-ui.test.mjs && node tests/match-retry.test.mjs && node tests/resale-matching.test.mjs && npm run test:drafts && node tests/resale-operations.test.mjs && node tests/draft-retry.test.mjs && node tests/operation-retry.test.mjs && npm run test:gmail-runtime && npm run test:gmail-db && npm run test:pricing && npm run test:packages && npm run test:listing-reference && npm run test:listing-refresh && npm run test:ebay && npm run test:ebay-listing-runs",
     "test:concurrency": "node tests/concurrency.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:media": "node --test tests/media-worker.test.mjs tests/media-client.test.mjs",
@@ -27,7 +27,8 @@
     "test:listing-refresh": "node tests/listing-refresh-db.test.mjs && node tests/listing-refresh-ui.test.mjs",
     "test:listing-refresh-concurrency": "node tests/listing-refresh-concurrency.test.mjs",
     "test:ebay": "node --test tests/ebay-runtime.test.mjs tests/ebay-proxy.test.mjs && node tests/resale-ebay.test.mjs",
-    "test:ebay-concurrency": "node tests/resale-ebay-concurrency.test.mjs"
+    "test:ebay-concurrency": "node tests/resale-ebay-concurrency.test.mjs",
+    "test:ebay-listing-runs": "node tests/resale-ebay-listing-runs.test.mjs && node tests/ebay-listing-run-ui.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.115.0",
