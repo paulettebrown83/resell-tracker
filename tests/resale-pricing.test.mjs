@@ -31,6 +31,12 @@ try {
  const action=randomUUID();await db.query("insert into public.resale_actions(id,listing_id,action,idempotency_key,reason,payload) values($1,$2,'update',$1::uuid::text,'synthetic','{\"prepared_fields\":{\"price\":20}}')",[action,listing]);
  assert((await db.query('select blockers from public.resale_actions where id=$1',[action])).rows[0].blockers.some(x=>x.code==='pricing_execution_unavailable'));
  await deny(()=>db.query("update public.resale_actions set state='running' where id=$1",[action]),'55000');await deny(()=>db.query("update public.resale_actions set state='succeeded' where id=$1",[action]),'55000');
+ await db.query("update public.resale_actions set target_external_listing_id='m1' where id=$1",[action]);
+ await db.query("update public.resale_listings set external_listing_id=null where id=$1",[listing]);
+ await deny(()=>db.query("update public.resale_actions set state='running' where id=$1",[action]),'55000');
+ await deny(()=>db.query("update public.resale_actions set target_external_listing_id=null where id=$1",[action]),'40001');
+ await deny(()=>db.query("update public.resale_actions set payload='{}' where id=$1",[action]),'40001');
+ await db.query("update public.resale_listings set external_listing_id='m1' where id=$1",[listing]);
  await db.query("delete from private.memberships where user_id=$1 and area='resale'",[owner]);await role('service_role');await deny(()=>record(),'42501');await role('authenticated',owner);assert.equal((await db.query('select * from public.resale_listing_pricing')).rows.length,0);
  await role('postgres');for(const table of ['inventory','sales','resale_order_lines'])assert.equal((await db.query(`select count(*) n from public.${table}`)).rows[0].n,0);
  console.log('PASS pricing exact source/actor retry, membership and revocation, conflicting facts, unknowns, immutable evidence, and unavailable price execution without canonical effects');

@@ -92,9 +92,14 @@ grant select on public.resale_listing_pricing to authenticated,service_role;
 create function private.resale_guard_price_operation() returns trigger language plpgsql security definer set search_path='' as $$
 declare l public.resale_listings; reason text; p record; e jsonb; issue text;
 begin
+ if tg_op='UPDATE' and old.action in ('publish','update') and coalesce(old.payload->'prepared_fields','{}'::jsonb) ? 'price'
+ and (new.action is distinct from old.action or new.payload is distinct from old.payload) then raise exception 'Captured price request cannot change' using errcode='40001'; end if;
  if new.action not in ('publish','update') or not(coalesce(new.payload->'prepared_fields','{}'::jsonb) ? 'price') then return new; end if;
  select * into l from public.resale_listings where id=new.listing_id;
- if l.external_listing_id is null then return new; end if;
+ if tg_op='UPDATE' and old.target_external_listing_id is not null
+ and (new.target_external_listing_id is distinct from old.target_external_listing_id or new.listing_id is distinct from old.listing_id or new.target_account_id is distinct from old.target_account_id or new.target_inventory_id is distinct from old.target_inventory_id or new.target_identity is distinct from old.target_identity) then
+ raise exception 'Captured pricing target cannot change' using errcode='40001'; end if;
+ if coalesce(new.target_external_listing_id,new.target_identity->>'external_listing_id',l.external_listing_id) is null then return new; end if;
  if new.state in ('running','succeeded') then raise exception 'Existing listing price execution requires an implemented settings-preserving adapter and postflight verification' using errcode='55000'; end if;
  if tg_op='INSERT' then
  select * into p from public.resale_listing_pricing where listing_id=l.id;
