@@ -103,15 +103,18 @@ drop trigger resale_source_record_immutable on public.resale_source_records;
 create trigger resale_source_record_immutable before update or delete on public.resale_source_records for each row execute function private.resale_ebay_source_immutable();
 
 create function private.resale_ebay_purge_listing_page() returns trigger language plpgsql security definer set search_path='' as $$
-declare i private.resale_ebay_listing_ingests;l public.resale_listings;o public.resale_observations;snap uuid;begin
+declare i private.resale_ebay_listing_ingests;l public.resale_listings;o public.resale_observations;snap uuid;retained_at timestamptz;status_count integer;begin
  if not exists(select 1 from private.resale_ebay_listing_pages where read_id=old.id) then return old;end if;
  if not exists(select 1 from private.resale_ebay_tokens t join private.resale_ebay_deletions d on d.subject_eias_sha256=t.seller_eias_sha256 where t.account_id=old.account_id) then raise exception 'Verified exact seller deletion required' using errcode='42501';end if;
  select snapshot_id into snap from private.resale_ebay_listing_pages where read_id=old.id;
  for i in select * from private.resale_ebay_listing_ingests where read_id=old.id order by listing_id loop
  select * into l from public.resale_listings where id=i.listing_id for update;
  if l.observation_id=i.observation_id then
- select * into o from public.resale_observations where listing_id=l.id and id<>i.observation_id order by observed_at desc,created_at desc,id desc limit 1;
- update public.resale_listings set observation_id=o.id,observed_at=o.observed_at,observed_status=coalesce(o.status,'unknown') where id=l.id;end if;
+ select max(observed_at) into retained_at from public.resale_observations where listing_id=l.id and id<>i.observation_id;
+ select count(distinct status) into status_count from public.resale_observations where listing_id=l.id and id<>i.observation_id and observed_at=retained_at;
+ if status_count>1 then update public.resale_listings set observation_id=null,observed_at=retained_at,observed_status='unknown' where id=l.id;
+ else select * into o from public.resale_observations where listing_id=l.id and id<>i.observation_id and observed_at=retained_at order by created_at desc,id desc limit 1;
+ update public.resale_listings set observation_id=o.id,observed_at=o.observed_at,observed_status=coalesce(o.status,'unknown') where id=l.id;end if;end if;
  -- The exact mapping must exist while the immutable-source trigger verifies this exception.
  delete from public.resale_source_records where id=i.source_id;
  delete from private.resale_ebay_listing_ingests where read_id=old.id and listing_id=l.id;
