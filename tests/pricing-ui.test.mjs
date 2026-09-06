@@ -13,6 +13,7 @@ const html=p=>renderToStaticMarkup(React.createElement(Panel,{pricing:p,external
 assert.match(html(p),/Smart Pricing: on/);assert.match(html(p),/Minimum \$17.00/);assert.match(html(p),/marketplace controls price reductions/);
 assert.match(html({...p,mechanism:'poshmark_smart_sell',enabled:false,minimum_minor:null}),/Smart Sell offers: off/);
 assert.match(html({...p,minimum_minor:null}),/Minimum price not verified/);
+assert.match(html({...p,currency:null,pricing_status:'unknown'}),/currency not verified/);assert.doesNotMatch(html({...p,currency:null,pricing_status:'unknown'}),/Observed asking price \$20/);
 assert.match(html(undefined),/not checked/);assert.match(html({...p,pricing_status:'conflict',pricing_observation_id:null,asking_minor:null,minimum_minor:null}),/Conflicting/);
 assert.match(html({...p,pricing_status:'stale',enabled:false}),/fresh marketplace check/);
 assert.match(html({...p,mechanism:'poshmark_smart_sell'}),/automatic offers/);

@@ -103,7 +103,7 @@ export function OperationCards({
                     "Saved account"}
                 </p>
                 <h3>
-                  {mail?.heading || OPERATION_LABELS[operation.action] || "Marketplace step"}
+                  {mail?.heading || (operation.adapter_key === "exact_listing_refresh_v1" ? "Check availability and pricing" : operation.adapter_key === "poshmark_private_reference_v1" ? "Add private tracker reference" : OPERATION_LABELS[operation.action]) || "Marketplace step"}
                 </h3>
               </div>
               <span
@@ -310,7 +310,7 @@ export function OperationEvidenceDialog({
       <div className="wb-note">
         <div>
           <strong>
-            {operation.marketplace} · {OPERATION_LABELS[operation.action]}
+            {operation.marketplace} · {operation.adapter_key === "exact_listing_refresh_v1" ? "Check availability and pricing" : operation.adapter_key === "poshmark_private_reference_v1" ? "Private tracker reference" : OPERATION_LABELS[operation.action]}
           </strong>
           <p>
             Attach saved source rows or explain what needs checking. This

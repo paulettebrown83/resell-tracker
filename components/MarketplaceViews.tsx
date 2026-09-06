@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import ListingRefreshRequest from './ListingRefreshRequest';
+import ListingReferenceRequest from "./ListingReferenceRequest";
 import ListingPricingState from "./ListingPricingState";
 import Icon from "./WorkbenchIcon";
 import ListingMatchDialog from "./ListingMatchDialog";
@@ -294,6 +296,8 @@ export function MarketplaceViews({
                   </p>
                 </div>
                 <div>
+                  <ListingReferenceRequest listing={listing} marketplace={account?.marketplace || ""} onChanged={onChanged} pending={data.actions.some((a) => a.listing_id === listing.id && a.adapter_key === "poshmark_private_reference_v1" && !["succeeded", "cancelled"].includes(a.state))} />
+                  <ListingRefreshRequest listing={listing} marketplace={account?.marketplace || ""} onChanged={onChanged} pending={data.actions.some((a) => a.listing_id === listing.id && a.adapter_key === "exact_listing_refresh_v1" && !["succeeded", "cancelled"].includes(a.state))} />
                   {url && (
                     <a
                       className="wb-button wb-button-secondary"

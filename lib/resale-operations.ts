@@ -52,7 +52,7 @@ export async function getResaleOperations(accountId?: string): Promise<ResaleOpe
 export async function requestResaleOperation(input: OperationRequest, requestId: string): Promise<string> {
   requireWritableDeployment()
   await requireAccess()
-  const { data, error } = await supabase.rpc('resale_request_operation', { p_request_id: requestId, p_payload: input })
+  const { data, error } = await supabase.rpc(input.requested.scope === 'poshmark_private_listing_reference' ? 'resale_request_listing_reference' : input.requested.scope === 'exact_listing_refresh' ? 'resale_request_listing_refresh' : 'resale_request_operation', { p_request_id: requestId, p_payload: input })
   if (error) throw error
   return data as string
 }
