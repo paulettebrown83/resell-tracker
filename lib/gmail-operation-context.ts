@@ -4,7 +4,7 @@ import type { ResaleOperation } from './resale-operations';
 const reasons: Record<string, string> = {
   sender_authentication: 'The sender’s authentication could not be confirmed. Do not treat this email as proof of a sale.',
   ambiguous_subject: 'The email has conflicting subject information, so its notification type could not be confirmed.',
-  mailbox_account_mismatch: 'The email could not be tied to this Vinted account. Check the account named in the original message.',
+  mailbox_account_mismatch: 'The expected account greeting was not confirmed. A missing or different greeting does not establish that this message belongs to another account; its format and account still need checking.',
   unrecognized_template: 'This email does not match a supported Vinted sale or shipping-label format. Its meaning needs a manual check.',
   unsupported_body: 'The email body could not be read safely in a supported format. Check the original message.',
 };
@@ -78,4 +78,54 @@ export function gmailOperationContext(
         : 'The parser could not establish what this email means. Check the original message before using it as evidence.',
     legacyComparison: review?.evidence.legacy_source_reused === true,
   };
+}
+
+export type GmailActivityEntry = { key: string; operations: ResaleOperation[]; feedId: string | null; accountId: string };
+
+/** Group only untouched source-format checks. This changes presentation, never task state or trust. */
+export function groupGmailActivity(
+  operations: ResaleOperation[], sources: ResaleSourceRecord[], reviews: ResaleAttention[],
+): GmailActivityEntry[] {
+  const entries: GmailActivityEntry[] = [];
+  const groups = new Map<string, GmailActivityEntry>();
+  for (const operation of operations) {
+    let feedId: string | null = null;
+    if (operation.adapter_key === 'vinted-gmail' && operation.marketplace === 'vinted'
+      && operation.action === 'import' && operation.state === 'blocked'
+      && operation.trigger?.kind === 'source_record' && !operation.inventory_id && !operation.listing_id
+      && operation.attempts === 0 && operation.proposal_count === 0 && !operation.last_error
+      && !operation.latest_outcome && !operation.verification_id && !operation.verification_observation_id
+      && operation.blockers.length === 1 && operation.blockers[0].code === 'source_conflict') {
+      const source = sources.find(row => row.id === operation.trigger!.id
+        && row.account_id === operation.account_id && row.source_kind === 'email');
+      const linked = source ? reviews.filter(row => row.evidence.operation_id === operation.id
+        && row.evidence.source_record_id === source.id && row.evidence.parser_version === 'vinted-gmail-v1') : [];
+      const review = linked.length === 1 ? linked[0] : null;
+      const facts = review ? record(review.evidence.new_parser_facts) : null;
+      const id = review?.evidence.feed_id;
+      const message = source?.external_identifiers.gmail_message_id;
+      if (review?.state === 'open' && !review.inventory_id && !review.listing_id
+        && typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+        && typeof message === 'string' && /^[0-9a-f]{1,32}$/i.test(message)
+        && review.evidence.gmail_message_id === message && review.evidence.canonical_effect === 'none'
+        && facts?.parser_status === 'quarantined' && facts.authentication_pass === true
+        && ['mailbox_account_mismatch', 'unrecognized_template'].includes(String(facts.quarantine_reason))
+        && !['sale_notification', 'shipping_notification', 'cancellation_notification'].includes(String(source?.normalized.notification_kind))) {
+        feedId = id;
+      }
+    }
+    if (!feedId) {
+      entries.push({key: operation.id, operations: [operation], feedId: null, accountId: operation.account_id});
+      continue;
+    }
+    const key = `gmail:${operation.account_id}:${feedId}`;
+    const existing = groups.get(key);
+    if (existing) existing.operations.push(operation);
+    else {
+      const entry = {key, operations: [operation], feedId, accountId: operation.account_id};
+      groups.set(key, entry);
+      entries.push(entry);
+    }
+  }
+  return entries;
 }
