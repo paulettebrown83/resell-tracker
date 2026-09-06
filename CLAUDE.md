@@ -2,6 +2,7 @@
 
 This is Paulette's existing Next.js resale app. Read README.md and docs/ROLLOUT.md before changes. The prepared security migration is not a verified production deployment.
 
+- Codex handles authorized review, fixes, merges and deployment mechanics. Explain a PR (pull request) as a reviewed package of changes; give Paulette plain-language outcomes and only the next decision/action she actually needs. Do not ask her to operate squash/merge workflows.
 - Use Comet; the connected browser extension may label its Chromium family as Chrome. Verify the native app before using that connection.
 - `app/page.tsx` holds inventory/expense/report UI. `components/AuthGate.tsx` handles password login and membership gating. `components/SaleEditor.tsx` captures actual sale values and corrections. `lib/supabase.ts` owns browser data access and uncertain-request retries.
 - Membership rules and narrowly authorized atomic sale functions live in `supabase/migrations/`. Preserve original IDs, source identity, history and request records. Never restore broad public policies or delete inventory to mark it sold.

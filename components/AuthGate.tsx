@@ -1,29 +1,42 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { requireAccess, supabase } from '@/lib/supabase'
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
+  const [authState, setAuthState] = useState<{ session: Session | null; revision: number }>({ session: null, revision: 0 })
+  const { session } = authState
+  const latestRevision = useRef(0)
   const [ready, setReady] = useState(false)
-  const [allowed, setAllowed] = useState(false)
+  const [allowedUserId, setAllowedUserId] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, next) => {
-      setAllowed(false); setSession(next); setReady(true)
+      // Supabase can emit SIGNED_IN again on tab focus. Keep that account's
+      // forms mounted while rechecking access, but never carry access across users.
+      const revision = ++latestRevision.current
+      setAllowedUserId(previous => previous === next?.user.id ? previous : null)
+      setAuthState({ session: next, revision }); setReady(true); setError('')
     })
     return () => subscription.unsubscribe()
   }, [])
   useEffect(() => {
     let cancelled = false
     if (session) requireAccess().then(() => {
-      if (!cancelled) { setAllowed(true); setError('') }
-    }).catch(() => { if (!cancelled) setError('Resale access is unavailable for this account. Ask Paulette or Jon to check your access and the app setup.') })
+      if (!cancelled && latestRevision.current === authState.revision) {
+        setAllowedUserId(session.user.id); setError('')
+      }
+    }).catch(() => {
+      if (!cancelled && latestRevision.current === authState.revision) {
+        setAllowedUserId(null)
+        setError('Resale access is unavailable for this account. Ask Paulette or Jon to check your access and the app setup.')
+      }
+    })
     return () => { cancelled = true }
-  }, [session])
+  }, [session, authState.revision])
   async function signIn(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError('')
     try {
@@ -38,7 +51,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     if (error) setError('Could not sign out. Try again.')
   }
   if (!ready) return <main className="p-8 text-white">Checking sign-in…</main>
-  if (session && allowed) return <>
+  if (session && allowedUserId === session.user.id) return <>
     {process.env.NEXT_PUBLIC_APP_DEPLOYMENT_ENV === 'preview' && <p className="bg-amber-100 p-3 text-center text-amber-900">Preview: records are read only. Saving is disabled.</p>}
     <div className="p-3 text-right text-white text-sm">{session.user.email} <button className="underline ml-3" onClick={signOut}>Sign out</button></div>
     <div key={session.user.id}>{children}</div>

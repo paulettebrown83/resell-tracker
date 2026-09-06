@@ -269,7 +269,7 @@ function ResellTracker() {
     const rows = filteredSales.map(s => [
       s.id, s.inventory_id || '', s.source_system || '', s.source_record_id || '', s.settlement_status, s.item_name, s.platform, s.sale_date,
       s.sale_price.toFixed(2), s.platform_fee.toFixed(2),
-      s.item_cost == null ? '' : s.item_cost.toFixed(2), s.shipping_cost.toFixed(2), s.profit.toFixed(2)
+      s.item_cost == null ? '' : s.item_cost.toFixed(2), s.shipping_cost == null ? '' : s.shipping_cost.toFixed(2), s.profit.toFixed(2)
     ])
     downloadCSV(`sales-${selectedYear}.csv`, headers, rows)
   }

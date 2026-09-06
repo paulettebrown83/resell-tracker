@@ -6,7 +6,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey)
 
 export type Sale = {
   id: string; item_name: string; platform: string; sale_date: string
-  sale_price: number; platform_fee: number; item_cost: number | null; shipping_cost: number
+  sale_price: number; platform_fee: number; item_cost: number | null; shipping_cost: number | null
   profit: number; gross_total: number | null; actual_received: number | null
   status: string; created_at: string; inventory_id: string | null
   source_system: string | null; source_record_id: string | null

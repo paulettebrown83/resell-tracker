@@ -12,7 +12,7 @@ export default function SaleEditor({ item, sale, onSaved, onCancel }: {
     item_name: sale?.item_name || item?.item_name || '', platform: sale?.platform || 'Vinted',
     sale_date: sale?.sale_date || new Date().toLocaleDateString('en-CA'),
     sale_price: sale ? String(sale.sale_price) : '', platform_fee: sale ? String(sale.platform_fee) : '',
-    item_cost: sale ? (sale.item_cost == null ? '' : String(sale.item_cost)) : String(item?.item_cost ?? 0), shipping_cost: sale ? String(sale.shipping_cost ?? 0) : '',
+    item_cost: sale ? (sale.item_cost == null ? '' : String(sale.item_cost)) : String(item?.item_cost ?? 0), shipping_cost: sale?.shipping_cost == null ? '' : String(sale.shipping_cost),
     actual_received: sale?.actual_received == null ? '' : String(sale.actual_received),
     gross_total: sale?.gross_total == null ? '' : String(sale.gross_total),
     source_system: sale?.source_system || '', source_record_id: sale?.source_record_id || '', reason: ''
