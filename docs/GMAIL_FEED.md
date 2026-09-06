@@ -40,3 +40,15 @@ The checksum covers `JSON.stringify({id,threadId,internalDate,payload})` in that
 Local tests: `npm run test:gmail-runtime`, full `npm test`, typecheck, lint, build and audit. Two prior real Vinted MIME messages were replayed privately to verify parser body structure; sanitized synthetic fixtures cover adversarial cases in Git. These are not a substitute for a live Gmail OAuth/REST/Edge acceptance run. Private source files and checksum reports remain outside the public repository. Clean owned temporary builds, dependency symlinks, processes and browser pages after acceptance; preserve final source and evidence.
 
 Sources checked September6,2026: [Google web OAuth](https://developers.google.com/identity/protocols/oauth2/web-server), [Gmail message API](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/get), [Gmail list API](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list), [Supabase Edge key environment](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys), [Supabase function configuration](https://supabase.com/docs/guides/functions/function-configuration), [Cloudflare Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/).
+
+## Database ownership and release checks
+
+The detailed SQL interface is [GMAIL_FEED_RPC_CONTRACT.md](GMAIL_FEED_RPC_CONTRACT.md). Enrollment and reads are owner-bound, with current membership locked before feed state. Coordinator client, redirect or publishing changes invalidate prior OAuth states and leases. A retained refresh token must remain bound to its original client; configuration changes require reconnect.
+
+1. Run `docs/acceptance/gmail-preexisting-fingerprints.sql` and retain the 29 compact count/hash rows.
+2. Apply `20260906064000_resale_gmail_feed.sql` once after independent review.
+3. Confirm Google Audience is In production; apply `gmail-provision.sql`. Existing Vault keys are preserved. Only names and IDs are returned.
+4. Run `gmail-hosted-rollback.sql` before real enrollment. It uses the existing approved member only inside SQL-role tests; all synthetic accounts, enrollment, source/task rows, and temporary refresh token roll back. It does not create Auth users or counterfeit HTTP bearer tokens.
+5. Repeat all 29 fingerprints and compare exactly. Then deploy the reviewed runtime, enroll through real browser authentication, obtain Google consent and check a real bounded run separately.
+
+Local checks: `npm run test:gmail-db` and `npm run test:gmail-db-concurrency`. Local Vault functions are explicit synthetic stand-ins; they test function privileges and secret-consumer behavior, not hosted encryption. The native suite uses separate PostgreSQL connections and removes its temporary database. Hosted acceptance is also rehearsed locally and proves its 29-table fingerprints and preexisting synthetic key contents survive unchanged.
