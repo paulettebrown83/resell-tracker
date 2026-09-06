@@ -59,3 +59,9 @@ Official sources checked September6,2026:
 - https://partnerapi.depop.com/api-docs/reference/
 - https://supabase.com/docs/guides/database/functions
 - https://supabase.com/changelog (markdown endpoint failed; HTML fallback reviewed)
+
+## Workbench entry and retry behavior
+
+Open a physical item, then Prepare marketplace draft. Choose a saved marketplace account and either an existing confirmed listing or a new local draft. Shared facts seed the form; edits persist separately as manual overrides and writing preferences. Unknown price, currency, shipping and category remain unknown. Guidance is scoped by marketplace, preparation format, US market, source date and rule version. Saving does not assert publish readiness or enqueue a remote action.
+
+The browser retains an account-scoped request UUID and exact input until confirmed. Retry pending marketplace draft remains available in Record tools & recovery after a dialog closes. Stale versions or item bindings require refreshed review. Imported listing counts exclude local records with no observation, and changed item bindings visibly mark prior prepared copy/photos as stale.

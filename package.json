@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs && node tests/resale-workbench.test.mjs && node tests/resale-source-records.test.mjs && npm run test:media && node tests/intake-retry.test.mjs && node tests/workbench-ui.test.mjs && node tests/match-retry.test.mjs && node tests/resale-matching.test.mjs && npm run test:drafts && node tests/resale-operations.test.mjs",
+    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs && node tests/resale-workbench.test.mjs && node tests/resale-source-records.test.mjs && npm run test:media && node tests/intake-retry.test.mjs && node tests/workbench-ui.test.mjs && node tests/match-retry.test.mjs && node tests/resale-matching.test.mjs && npm run test:drafts && node tests/resale-operations.test.mjs && node tests/draft-retry.test.mjs",
     "test:concurrency": "node tests/concurrency.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:media": "node --test tests/media-worker.test.mjs tests/media-client.test.mjs",

@@ -544,6 +544,154 @@ try {
   console.log(
     "PASS late account-scoped export is discarded after AuthGate unmount",
   );
+  const DraftDialog = load("components/ListingDraftDialog.tsx").default;
+  const { manualDraftOverrides } = load("components/ListingDraftDialog.tsx");
+  const draftHost = document.createElement("div");
+  document.body.append(draftHost);
+  const draftRoot = createRoot(draftHost);
+  const draftAccount = {
+    id: "synthetic-shop",
+    marketplace: "ebay",
+    account_alias: "Synthetic shop",
+  };
+  const draftData = {
+    inventory: [base],
+    accounts: [draftAccount],
+    details: [],
+    listings: [],
+    media: [],
+    snapshots: [],
+    actions: [],
+    attention: [],
+  };
+  const draftSaves = [];
+  let draftRefresh = 0,
+    draftClosed = 0;
+  const draftProps = {
+    item: base,
+    data: draftData,
+    save: async (input) => draftSaves.push(input),
+    retry: async () => {},
+    onSaved: async () => {
+      draftRefresh++;
+    },
+    onClose: () => {
+      draftClosed++;
+    },
+  };
+  await act(async () =>
+    draftRoot.render(React.createElement(DraftDialog, draftProps)),
+  );
+  const draftLabel = (text) =>
+    Array.from(draftHost.querySelectorAll("label")).find((n) =>
+      n.textContent.trim().startsWith(text),
+    );
+  assert.equal(
+    draftLabel("Marketplace account").querySelector("select").value,
+    "",
+  );
+  await fill(
+    draftLabel("Marketplace account").querySelector("select"),
+    "synthetic-shop",
+  );
+  await fill(draftLabel("Listing record").querySelector("select"), "new");
+  await act(() =>
+    Array.from(draftHost.querySelectorAll("button"))
+      .find((n) => n.textContent === "Prepare for this shop")
+      .click(),
+  );
+  assert.equal(
+    draftLabel("Proposed asking price").querySelector("input").value,
+    "",
+  );
+  assert.equal(draftLabel("Shipping method").querySelector("input").value, "");
+  await fill(draftLabel("Proposed asking price").querySelector("input"), "33");
+  await fill(draftLabel("Currency").querySelector("input"), "USD");
+  await fill(
+    draftLabel("Prepared description").querySelector("textarea"),
+    "Synthetic factual description",
+  );
+  await act(async () =>
+    draftHost
+      .querySelector("form")
+      .dispatchEvent(
+        new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+      ),
+  );
+  assert.equal(draftSaves.length, 1);
+  assert.equal(draftSaves[0].inventory_id, base.id);
+  assert.equal(draftSaves[0].account_id, draftAccount.id);
+  assert.equal(draftSaves[0].expected_version, 0);
+  assert.equal(draftSaves[0].fields.price, null);
+  assert.equal(draftSaves[0].overrides.price, 33);
+  assert.equal(
+    draftSaves[0].overrides.description,
+    "Synthetic factual description",
+  );
+  assert.equal(base.item_cost, 12);
+  assert.equal(draftRefresh, 1);
+  assert.equal(draftClosed, 1);
+  assert.deepEqual(
+    manualDraftOverrides(
+      { title: "base", price: 20 },
+      { title: null, price: 20 },
+    ),
+    { title: null },
+  );
+  const staleDraft = {
+    id: "stale-listing",
+    account_id: draftAccount.id,
+    inventory_id: base.id,
+    external_listing_id: "synthetic-remote",
+    match_status: "confirmed",
+    title: "Older preparation",
+    draft_version: 2,
+    draft_context: {
+      inventory_id: "different-item",
+      account_id: draftAccount.id,
+      fields: { title: "Different physical item" },
+    },
+    desired_fields: { title: "Different physical item" },
+    external_identifiers: {},
+    observed_at: null,
+  };
+  await act(async () =>
+    draftRoot.render(
+      React.createElement(DraftDialog, {
+        ...draftProps,
+        key: "stale-context",
+        data: { ...draftData, listings: [staleDraft] },
+      }),
+    ),
+  );
+  await fill(
+    draftLabel("Marketplace account").querySelector("select"),
+    "synthetic-shop",
+  );
+  await fill(
+    draftLabel("Listing record").querySelector("select"),
+    "stale-listing",
+  );
+  assert.match(draftHost.textContent, /prepared for a different item link/);
+  assert.equal(
+    Array.from(draftHost.querySelectorAll("button")).find(
+      (n) => n.textContent === "Prepare for this shop",
+    ).disabled,
+    true,
+  );
+  assert.equal(
+    draftSaves.length,
+    1,
+    "Stale item copy cannot silently seed a new save",
+  );
+  console.log(
+    "PASS guided draft blocks stale physical-item context after a manual relink",
+  );
+  await act(() => draftRoot.unmount());
+  draftHost.remove();
+  console.log(
+    "PASS guided draft requires explicit shop/record, leaves price/shipping unknown, separates shared facts and overrides, preserves item cost and refreshes after save",
+  );
 } finally {
   dom.window.close();
 }

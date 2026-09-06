@@ -2569,3 +2569,71 @@ svg {
     margin-top: 5px;
   }
 }
+
+.wb-draft-setup,
+.wb-draft-form {
+  padding: 24px;
+}
+.wb-draft-setup {
+  display: grid;
+  gap: 20px;
+}
+.wb-draft-form fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: 20px;
+}
+.wb-draft-form legend {
+  font-family: Georgia, serif;
+  font-size: 24px;
+  margin-bottom: 12px;
+}
+.wb-draft-guidance,
+.wb-draft-validation,
+.wb-draft-photos {
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.wb-draft-guidance {
+  border: 1px solid var(--wb-line);
+  padding: 14px;
+  border-radius: 8px;
+}
+.wb-draft-guidance summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.wb-draft-guidance p,
+.wb-draft-guidance ul {
+  margin-top: 12px;
+}
+.wb-draft-validation {
+  padding: 18px;
+  background: #eeefe7;
+  border-radius: 8px;
+}
+.wb-draft-validation ul {
+  padding-left: 20px;
+}
+.wb-draft-validation li {
+  margin-top: 7px;
+}
+.wb-draft-form .wb-checkbox {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 0;
+}
+.wb-draft-form .wb-checkbox input {
+  margin-top: 5px;
+  flex: 0 0 auto;
+}
+@media (max-width: 600px) {
+  .wb-draft-setup,
+  .wb-draft-form {
+    padding: 16px;
+  }
+}

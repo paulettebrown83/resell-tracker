@@ -3,6 +3,10 @@ import { useState } from "react";
 import type { ResaleSourceRecord } from "@/lib/resale-contract";
 import type { ResaleWorkbench } from "@/lib/resale-data";
 import { dateLabel } from "@/lib/workbench";
+import {
+  isPreparedDraftCurrent,
+  type PreparedListing,
+} from "@/lib/resale-drafts";
 
 export function eventLabel(
   row: Pick<
@@ -365,6 +369,13 @@ export function LinkedItemListings({
             Checked {dateLabel(listing.observed_at)} · item match{" "}
             {listing.match_status}
           </p>
+          {(listing as PreparedListing).draft_version > 0 &&
+            !isPreparedDraftCurrent(listing as PreparedListing) && (
+              <p className="wb-alert">
+                This preparation belongs to an earlier item link. Do not reuse
+                its copy or photos without review.
+              </p>
+            )}
           {Object.keys(listing.desired_fields).length > 0 && (
             <details>
               <summary>
