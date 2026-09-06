@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+import {createRequire} from 'node:module';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+const require=createRequire(import.meta.url);
+function compile(file,imports={}) {const m={exports:{}};const code=ts.transpileModule(fs.readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;new Function('require','module','exports',code)(n=>imports[n]||require(n),m,m.exports);return m.exports;}
+const domain=compile('../lib/listing-reference.ts');
+const Panel=compile('../components/ListingReferenceRequest.tsx',{'@/lib/listing-reference':domain,'@/lib/resale-operation-retry':{requestOperationWithRetry:async()=>{}}}).default;
+const listing={id:'11111111-1111-4111-8111-111111111111',account_id:'account',external_listing_id:'exact-posh-id',inventory_id:null,observation_id:'observation'};
+const intent=domain.listingReferenceIntent(listing);assert.equal(intent.inventory_id,null);assert.deepEqual(intent.requested,{scope:'poshmark_private_listing_reference',external_listing_id:'exact-posh-id'});
+const marker=`Resale tracker listing: ${listing.id}`,now=Date.now(),base={listingId:listing.id,currentNote:'Old note',verifyOnly:false,protectedMatch:true,leaseExpiresAt:new Date(now+60000).toISOString(),now};
+const choose=change=>domain.referenceReadbackDecision({...base,...change});
+assert.equal(choose({}).note,`Old note\n${marker}`);
+assert.equal(choose({currentNote:'new seller note',expectedNote:`Old note\n${marker}`}).step,'stop');
+assert.equal(choose({currentNote:`Old note\n${marker}`,expectedNote:`Old note\n${marker}`}).step,'verify_saved');
+for(const change of [{verifyOnly:true},{protectedMatch:false},{currentNote:'x'.repeat(490)},{leaseExpiresAt:new Date(now+14000).toISOString()},{listingId:'not-exact'}])assert.equal(choose(change).step,'stop');
+const html=(extra={})=>renderToStaticMarkup(React.createElement(Panel,{listing,marketplace:'poshmark',pending:false,onChanged:async()=>{},...extra}));
+assert.match(html(),/Supervised agent step/);assert.match(html(),/no item match needed/);assert.match(html({pending:true}),/disabled/);assert.match(html({pending:true}),/Reference request saved/);assert.equal(html({marketplace:'mercari'}),'');
+assert.equal(html({listing:{...listing,external_listing_id:null}}),'');
+console.log('PASS exact listing-only intent, changed-note preservation, append/readback/lease guards and truthful supervised UI');
