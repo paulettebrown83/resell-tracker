@@ -873,6 +873,71 @@ try {
       /run|resume|mark.*(done|complete)/i.test(n.textContent),
     ),
   );
+  const capturedOperation = {
+    ...operation,
+    listing_id: "replacement-record",
+    inventory_id: base.id,
+    deep_link: "https://www.ebay.com/itm/111111111111",
+    verification_id: "original-proof",
+  };
+  const originalLinkedListing = {
+    id: "replacement-record",
+    account_id: draftAccount.id,
+    inventory_id: base.id,
+    external_listing_id: "111111111111",
+    title: "Synthetic original listing",
+    listing_url: capturedOperation.deep_link,
+  };
+  const renderTarget = async (listing) =>
+    act(async () =>
+      operationRoot.render(
+        React.createElement(OperationCards, {
+          operations: [capturedOperation],
+          data: { ...draftData, listings: [listing] },
+          onEvidence: () => {},
+        }),
+      ),
+    );
+  await renderTarget(originalLinkedListing);
+  const currentLinkedId = () =>
+    Array.from(operationHost.querySelectorAll("dt")).find(
+      (n) => n.textContent === "Current linked listing ID",
+    )?.nextElementSibling?.textContent;
+  assert.equal(currentLinkedId(), "111111111111");
+  await renderTarget({
+    ...originalLinkedListing,
+    external_listing_id: "222222222222",
+    inventory_id: "replacement-item",
+    listing_url: "https://www.ebay.com/itm/222222222222",
+  });
+  assert.equal(
+    currentLinkedId(),
+    "222222222222",
+    "Changed external ID is explicitly labelled as the current linked listing",
+  );
+  assert.ok(
+    !Array.from(operationHost.querySelectorAll("dt")).some(
+      (n) => n.textContent === "Listing ID",
+    ),
+    "Current linked ID must not be presented as an unqualified saved target",
+  );
+  assert.match(
+    operationHost.textContent,
+    /Current listing details may differ from the target captured/,
+  );
+  assert.equal(
+    operationHost.querySelector("a").getAttribute("href"),
+    capturedOperation.deep_link,
+    "Saved request link remains anchored to its captured page",
+  );
+  assert.match(
+    operationHost.querySelector("a").textContent,
+    /Open saved marketplace page/,
+  );
+  assert.match(operationHost.textContent, /original-proof/);
+  console.log(
+    "PASS changed current listing identity is distinguished from the saved request page and original proof",
+  );
   const opLabel = (text) =>
     Array.from(operationHost.querySelectorAll("label")).find((n) =>
       n.textContent.trim().startsWith(text),

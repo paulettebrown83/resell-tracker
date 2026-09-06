@@ -134,7 +134,7 @@ export function OperationCards({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Open exact marketplace page ↗
+                  Open saved marketplace page ↗
                 </a>
               )}
               {!["succeeded", "cancelled"].includes(operation.state) && (
@@ -156,13 +156,17 @@ export function OperationCards({
             </div>
             <details className="wb-operation-detail">
               <summary>Saved request, checkpoint and proof</summary>
+              <p className="wb-help">
+                Current listing details may differ from the target captured in
+                this saved request.
+              </p>
               <dl className="wb-definition-grid">
                 <div className="wb-full">
                   <dt>Request</dt>
                   <dd>{operation.id}</dd>
                 </div>
                 <div>
-                  <dt>Listing ID</dt>
+                  <dt>Current linked listing ID</dt>
                   <dd>{listing?.external_listing_id || "Not supplied"}</dd>
                 </div>
                 <div>
