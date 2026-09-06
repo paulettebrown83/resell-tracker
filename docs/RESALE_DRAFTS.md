@@ -1,6 +1,6 @@
 # Prepared marketplace drafts and sourced guidance
 
-Status: staged implementation, not a production migration or completed UI. Root reviews and coordinates application/schema integration. Based on reviewed matching commit6876806; migration generated with Supabase CLI as `20260906034445_resale_prepared_listing_drafts.sql`. This adds no publisher, credential lookup, scheduling or marketplace network requests.
+Status: the draft database is deployed and hosted-tested; this release contains the independently reviewed guided interface and save-recovery fix. The migration was generated as `20260906034445_resale_prepared_listing_drafts.sql` and applied once under the hosted ledger version recorded below. This adds no publisher, credential lookup, scheduling or marketplace network requests.
 
 ## User flow and contract
 
