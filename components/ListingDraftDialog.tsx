@@ -50,7 +50,7 @@ export default function ListingDraftDialog({
   item: InventoryItem;
   data: ResaleWorkbench;
   save: (input: ListingDraftInput) => Promise<unknown>;
-  retry: () => Promise<unknown>;
+  retry: () => Promise<PreparedListing>;
   onSaved: () => Promise<void>;
   onClose: () => void;
 }) {
@@ -58,6 +58,7 @@ export default function ListingDraftDialog({
     [listingId, setListingId] = useState(""),
     [session, setSession] = useState<DraftSession | null>(null),
     [error, setError] = useState(""),
+    [recoveryNotice, setRecoveryNotice] = useState(""),
     [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const account = data.accounts.find((row) => row.id === accountId);
@@ -147,19 +148,39 @@ export default function ListingDraftDialog({
     setBusy(true);
     setError("");
     try {
-      if (isRetry) await retry();
-      else
-        await save({
-          ...(session.listing ? { listing_id: session.listing.id } : {}),
-          account_id: account.id,
-          inventory_id: item.id,
-          expected_version: session.listing?.draft_version || 0,
-          channel: session.channel,
-          rules_version: LISTING_RULES_VERSION,
-          fields: session.base,
-          preferences: session.preferences,
-          overrides: manualDraftOverrides(session.base, session.fields),
+      if (isRetry) {
+        const recovered = await retry();
+        // Recovery belongs to the account, and may concern another open draft.
+        // Never close or replace current copy just because that older save succeeded.
+        setSession((current) => {
+          if (
+            !current ||
+            recovered.account_id !== account.id ||
+            recovered.inventory_id !== item.id
+          )
+            return current;
+          const sameRecord = current.listing
+            ? current.listing.id === recovered.id
+            : recovered.external_listing_id === null;
+          return sameRecord ? { ...current, listing: recovered } : current;
         });
+        setRecoveryNotice(
+          "The pending save was verified. Your open draft and current edits are still here; review them before saving.",
+        );
+        await onSaved();
+        return;
+      }
+      await save({
+        ...(session.listing ? { listing_id: session.listing.id } : {}),
+        account_id: account.id,
+        inventory_id: item.id,
+        expected_version: session.listing?.draft_version || 0,
+        channel: session.channel,
+        rules_version: LISTING_RULES_VERSION,
+        fields: session.base,
+        preferences: session.preferences,
+        overrides: manualDraftOverrides(session.base, session.fields),
+      });
       await onSaved();
       onClose();
     } catch (failure) {
@@ -190,6 +211,11 @@ export default function ListingDraftDialog({
           </p>
         </div>
       </div>
+      {recoveryNotice && (
+        <p className="wb-note" role="status">
+          {recoveryNotice}
+        </p>
+      )}
       {error && (
         <div className="wb-alert" role="alert">
           <div>

@@ -687,6 +687,106 @@ try {
   console.log(
     "PASS guided draft blocks stale physical-item context after a manual relink",
   );
+  for (const scenario of ["different-draft", "newer-edits"]) {
+    let recoveredCloses = 0,
+      failDraft = true;
+    const retrySaves = [];
+    const recovered = {
+      id: "recovered-listing",
+      account_id: draftAccount.id,
+      inventory_id:
+        scenario === "different-draft" ? "other-physical-item" : base.id,
+      external_listing_id: null,
+      draft_version: 1,
+      draft_context: { inventory_id: base.id, account_id: draftAccount.id },
+      desired_fields: { description: "Earlier copy" },
+    };
+    await act(async () =>
+      draftRoot.render(
+        React.createElement(DraftDialog, {
+          ...draftProps,
+          key: scenario,
+          save: async (input) => {
+            retrySaves.push(input);
+            if (failDraft) throw new Error("An earlier draft needs recovery");
+          },
+          retry: async () => recovered,
+          onClose: () => {
+            recoveredCloses++;
+          },
+        }),
+      ),
+    );
+    await fill(
+      draftLabel("Marketplace account").querySelector("select"),
+      "synthetic-shop",
+    );
+    await fill(draftLabel("Listing record").querySelector("select"), "new");
+    await act(() =>
+      Array.from(draftHost.querySelectorAll("button"))
+        .find((n) => n.textContent === "Prepare for this shop")
+        .click(),
+    );
+    await fill(
+      draftLabel("Prepared description").querySelector("textarea"),
+      "Earlier submitted copy",
+    );
+    await act(async () =>
+      draftHost
+        .querySelector("form")
+        .dispatchEvent(
+          new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+        ),
+    );
+    await fill(
+      draftLabel("Prepared description").querySelector("textarea"),
+      "Current edits must survive recovery",
+    );
+    await act(async () =>
+      Array.from(draftHost.querySelectorAll("button"))
+        .find((n) => n.textContent === "Retry pending draft save")
+        .click(),
+    );
+    assert.equal(
+      recoveredCloses,
+      0,
+      "Recovery must never close the current draft form",
+    );
+    assert.equal(
+      draftLabel("Prepared description").querySelector("textarea").value,
+      "Current edits must survive recovery",
+    );
+    assert.match(draftHost.textContent, /current edits are still here/);
+    failDraft = false;
+    await act(async () =>
+      draftHost
+        .querySelector("form")
+        .dispatchEvent(
+          new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+        ),
+    );
+    assert.equal(
+      retrySaves.at(-1).overrides.description,
+      "Current edits must survive recovery",
+    );
+    assert.equal(retrySaves.at(-1).inventory_id, base.id);
+    assert.equal(
+      retrySaves.at(-1).listing_id,
+      scenario === "different-draft" ? undefined : "recovered-listing",
+    );
+    assert.equal(
+      retrySaves.at(-1).expected_version,
+      scenario === "different-draft" ? 0 : 1,
+    );
+    assert.equal(
+      recoveredCloses,
+      1,
+      "Only the explicit current-form save closes it",
+    );
+  }
+  console.log(
+    "PASS recovering draft A preserves open draft B; recovering an older payload preserves newer edits until explicitly saved",
+  );
   await act(() => draftRoot.unmount());
   draftHost.remove();
   console.log(
