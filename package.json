@@ -7,11 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs && node tests/resale-workbench.test.mjs && node tests/resale-source-records.test.mjs && npm run test:media && node tests/intake-retry.test.mjs && node tests/workbench-ui.test.mjs && node tests/match-retry.test.mjs && node tests/resale-matching.test.mjs",
+    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs && node tests/resale-workbench.test.mjs && node tests/resale-source-records.test.mjs && npm run test:media && node tests/intake-retry.test.mjs && node tests/workbench-ui.test.mjs && node tests/match-retry.test.mjs && node tests/resale-matching.test.mjs && npm run test:drafts",
     "test:concurrency": "node tests/concurrency.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:media": "node --test tests/media-worker.test.mjs tests/media-client.test.mjs",
-    "test:matching:concurrency": "node tests/resale-matching-concurrency.test.mjs"
+    "test:matching:concurrency": "node tests/resale-matching-concurrency.test.mjs",
+    "test:drafts": "node tests/listing-guidance.test.mjs && node tests/resale-drafts.test.mjs",
+    "test:drafts:concurrency": "node tests/resale-drafts-concurrency.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.115.0",
