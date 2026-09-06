@@ -1,6 +1,6 @@
 # Gmail feed RPC contract v1
 
-Database source: `supabase/migrations/20260906064000_resale_gmail_feed.sql`. Deployment remains pending independent review; see `GMAIL_FEED.md`.
+Database source: `supabase/migrations/20260906064000_resale_gmail_feed.sql`, deployed as hosted migration `20260906052120` after independent review. SHA256: `b3f76ab1e14de0365120aeba6d972870cf3078dcd00e99a2c52e558b80d0ba88`. PR8 main commit: `41ff45e63e47fb1435c9c75b802809ad79bc2139`. Five hosted rollback checks passed with all 29 preexisting fingerprints unchanged. Real approved-owner Google consent and the initial bounded production message read completed on September 6. Edge v1 is deployed; scheduling and completed-window acceptance are tracked separately from schema acceptance. See `GMAIL_FEED.md` for runtime behavior.
 
 Initial scope is one mailbox (`paulettebrown83@gmail.com`), Vinted, parser `vinted-gmail-v1`. Every credential/state/poll RPC below is granted only to the service role used inside the Supabase Edge Function; its HTTP handlers must validate bearer user or tick signature before use. No browser or anonymous Vault read is exposed. Member ownership is checked in SQL without synthesizing a user JWT.
 
