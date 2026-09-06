@@ -109,7 +109,7 @@ declare i private.resale_ebay_listing_ingests;l public.resale_listings;o public.
  select snapshot_id into snap from private.resale_ebay_listing_pages where read_id=old.id;
  for i in select * from private.resale_ebay_listing_ingests where read_id=old.id order by listing_id loop
  select * into l from public.resale_listings where id=i.listing_id for update;
- if l.observation_id=i.observation_id then
+ if l.observation_id=i.observation_id or (l.observation_id is null and l.observed_at=(select observed_at from public.resale_observations where id=i.observation_id)) then
  select max(observed_at) into retained_at from public.resale_observations where listing_id=l.id and id<>i.observation_id;
  select count(distinct status) into status_count from public.resale_observations where listing_id=l.id and id<>i.observation_id and observed_at=retained_at;
  if status_count>1 then update public.resale_listings set observation_id=null,observed_at=retained_at,observed_status='unknown' where id=l.id;
