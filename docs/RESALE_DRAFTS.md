@@ -65,3 +65,8 @@ Official sources checked September6,2026:
 Open a physical item, then Prepare marketplace draft. Choose a saved marketplace account and either an existing confirmed listing or a new local draft. Shared facts seed the form; edits persist separately as manual overrides and writing preferences. Unknown price, currency, shipping and category remain unknown. Guidance is scoped by marketplace, preparation format, US market, source date and rule version. Saving does not assert publish readiness or enqueue a remote action.
 
 The browser retains an account-scoped request UUID and exact input until confirmed. Retry pending marketplace draft remains available in Record tools & recovery after a dialog closes. Stale versions or item bindings require refreshed review. Imported listing counts exclude local records with no observation, and changed item bindings visibly mark prior prepared copy/photos as stale.
+
+
+## Hosted release record
+
+The reviewed draft migration was applied once as hosted ledger version `20260906035946` on September 6, 2026. Its SQL SHA256 is `dcf15add90d820fb7069b8156c80147271957def987aab9e24e1cc094e90cd71`; do not replay it because the local preparation timestamp differs. Hosted role-based acceptance checked creation, editing, exact/historical retries, stale and changed payload denial, history protections, anonymous/outsider denial and unchanged canonical data. All synthetic writes rolled back; draft/history/request counts returned to zero and all eight existing-table fingerprints matched. Guided UI independent review includes recovery fix `00cf0c1b20092712052716213e2a0f464bb2bb6c`, preserving current edits when retrying an earlier request. This does not establish remote publication or a live marketplace executor.
