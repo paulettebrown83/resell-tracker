@@ -3,6 +3,11 @@ import Link from "next/link";
 import type { ResaleSourceRecord } from "@/lib/resale-contract";
 import { useEffect, useMemo, useRef, useState } from "react";
 import SaleEditor from "./SaleEditor";
+import ListingDraftDialog from "./ListingDraftDialog";
+import {
+  saveDraftWithRetry,
+  retryPendingDraft,
+} from "@/lib/resale-draft-retry";
 import ItemIntake, { createIntakeDraft } from "./ItemIntake";
 import PhotoLibrary, { type MediaClient } from "./PhotoLibrary";
 import { MarketplaceViews, AttentionView } from "./MarketplaceViews";
@@ -222,6 +227,8 @@ export default function ResaleWorkbench({
   const [draft, setDraft] = useState(createIntakeDraft());
   const [workbench, setWorkbench] = useState<WorkbenchData | null>(null);
   const [photoItem, setPhotoItem] = useState("");
+  const [listingDraftItem, setListingDraftItem] =
+    useState<InventoryItem | null>(null);
   const [sourceRecords, setSourceRecords] = useState<ResaleSourceRecord[]>([]);
   const [expenseForm, setExpenseForm] = useState({
     name: "",
@@ -1460,6 +1467,18 @@ export default function ResaleWorkbench({
             >
               Retry pending listing match
             </button>
+            <button
+              className="wb-text-button"
+              disabled={writeDisabled}
+              onClick={() =>
+                mutate(
+                  () => retryPendingDraft(),
+                  "Pending marketplace draft verified.",
+                )
+              }
+            >
+              Retry pending marketplace draft
+            </button>
           </div>
         </details>
         <footer className="wb-footer">
@@ -1467,6 +1486,16 @@ export default function ResaleWorkbench({
           <span>Private inventory · Preserved history</span>
         </footer>
       </main>
+      {listingDraftItem && workbench && (
+        <ListingDraftDialog
+          item={listingDraftItem}
+          data={workbench}
+          save={saveDraftWithRetry}
+          retry={retryPendingDraft}
+          onSaved={loadData}
+          onClose={() => setListingDraftItem(null)}
+        />
+      )}
       {editor && (
         <Dialog
           key={editor.kind}
@@ -1680,6 +1709,16 @@ export default function ResaleWorkbench({
                   )
                 </button>
               </div>
+              <button
+                className="wb-button wb-button-primary"
+                disabled={writeDisabled}
+                onClick={() => {
+                  setListingDraftItem(editor.item);
+                  setEditor(null);
+                }}
+              >
+                Prepare marketplace draft
+              </button>
               <LinkedItemListings
                 itemId={editor.item.id}
                 data={workbench}

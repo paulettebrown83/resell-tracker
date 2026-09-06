@@ -42,7 +42,8 @@ export interface ResaleAttention {
   reason: string; state: 'open' | 'resolved' | 'dismissed'; evidence: Record<string, unknown>; created_at: string;
 }
 export interface ResaleAction {
-  id: string; listing_id: string; sale_id: string | null; action: 'publish' | 'update' | 'delist';
+  id: string; listing_id: string | null; sale_id: string | null;
+  action: 'publish' | 'update' | 'delist' | 'import' | 'reconcile_sale' | 'reconcile_cancellation' | 'reconcile_shipping';
   state: ActionStatus; idempotency_key: string; reason: string;
   attempts: number; next_attempt_at: string | null; last_error: string | null;
   verification_observation_id: string | null; created_at: string;

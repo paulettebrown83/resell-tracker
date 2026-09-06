@@ -124,7 +124,12 @@ export function MarketplaceViews({
               </div>
               <h2>{name}</h2>
               <div className="wb-marketplace-count">
-                <strong>{stored.length}</strong>
+                <strong>
+                  {
+                    stored.filter((listing) => listing.observed_at !== null)
+                      .length
+                  }
+                </strong>
                 <span>observed imported listings · not a live total</span>
               </div>
               {!stored.length &&
@@ -134,6 +139,15 @@ export function MarketplaceViews({
                     identities have been imported.
                   </p>
                 )}
+              {stored.some((listing) => listing.observed_at === null) && (
+                <p className="wb-help">
+                  {
+                    stored.filter((listing) => listing.observed_at === null)
+                      .length
+                  }{" "}
+                  local listing records · not yet observed
+                </p>
+              )}
               <p className="wb-source-count">
                 <strong>
                   {sources.filter((row) => ids.has(row.account_id)).length}
@@ -192,7 +206,7 @@ export function MarketplaceViews({
         <div className="wb-section-heading">
           <div>
             <h2>
-              Listing observations{" "}
+              Listings & local drafts{" "}
               <span className="wb-count">{listings.length}</span>
             </h2>
             <p>
@@ -236,7 +250,9 @@ export function MarketplaceViews({
                   </p>
                   <div className="wb-detail-platforms">
                     <span className="wb-badge">
-                      Observed: {listing.observed_status}
+                      {listing.observed_at
+                        ? `Observed: ${listing.observed_status}`
+                        : "Not observed on marketplace"}
                     </span>
                     <span
                       className={`wb-badge ${listing.match_status === "confirmed" ? "wb-badge-green" : "wb-badge-amber"}`}

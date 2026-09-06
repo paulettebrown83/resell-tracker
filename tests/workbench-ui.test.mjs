@@ -544,6 +544,254 @@ try {
   console.log(
     "PASS late account-scoped export is discarded after AuthGate unmount",
   );
+  const DraftDialog = load("components/ListingDraftDialog.tsx").default;
+  const { manualDraftOverrides } = load("components/ListingDraftDialog.tsx");
+  const draftHost = document.createElement("div");
+  document.body.append(draftHost);
+  const draftRoot = createRoot(draftHost);
+  const draftAccount = {
+    id: "synthetic-shop",
+    marketplace: "ebay",
+    account_alias: "Synthetic shop",
+  };
+  const draftData = {
+    inventory: [base],
+    accounts: [draftAccount],
+    details: [],
+    listings: [],
+    media: [],
+    snapshots: [],
+    actions: [],
+    attention: [],
+  };
+  const draftSaves = [];
+  let draftRefresh = 0,
+    draftClosed = 0;
+  const draftProps = {
+    item: base,
+    data: draftData,
+    save: async (input) => draftSaves.push(input),
+    retry: async () => {},
+    onSaved: async () => {
+      draftRefresh++;
+    },
+    onClose: () => {
+      draftClosed++;
+    },
+  };
+  await act(async () =>
+    draftRoot.render(React.createElement(DraftDialog, draftProps)),
+  );
+  const draftLabel = (text) =>
+    Array.from(draftHost.querySelectorAll("label")).find((n) =>
+      n.textContent.trim().startsWith(text),
+    );
+  assert.equal(
+    draftLabel("Marketplace account").querySelector("select").value,
+    "",
+  );
+  await fill(
+    draftLabel("Marketplace account").querySelector("select"),
+    "synthetic-shop",
+  );
+  await fill(draftLabel("Listing record").querySelector("select"), "new");
+  await act(() =>
+    Array.from(draftHost.querySelectorAll("button"))
+      .find((n) => n.textContent === "Prepare for this shop")
+      .click(),
+  );
+  assert.equal(
+    draftLabel("Proposed asking price").querySelector("input").value,
+    "",
+  );
+  assert.equal(draftLabel("Shipping method").querySelector("input").value, "");
+  await fill(draftLabel("Proposed asking price").querySelector("input"), "33");
+  await fill(draftLabel("Currency").querySelector("input"), "USD");
+  await fill(
+    draftLabel("Prepared description").querySelector("textarea"),
+    "Synthetic factual description",
+  );
+  await act(async () =>
+    draftHost
+      .querySelector("form")
+      .dispatchEvent(
+        new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+      ),
+  );
+  assert.equal(draftSaves.length, 1);
+  assert.equal(draftSaves[0].inventory_id, base.id);
+  assert.equal(draftSaves[0].account_id, draftAccount.id);
+  assert.equal(draftSaves[0].expected_version, 0);
+  assert.equal(draftSaves[0].fields.price, null);
+  assert.equal(draftSaves[0].overrides.price, 33);
+  assert.equal(
+    draftSaves[0].overrides.description,
+    "Synthetic factual description",
+  );
+  assert.equal(base.item_cost, 12);
+  assert.equal(draftRefresh, 1);
+  assert.equal(draftClosed, 1);
+  assert.deepEqual(
+    manualDraftOverrides(
+      { title: "base", price: 20 },
+      { title: null, price: 20 },
+    ),
+    { title: null },
+  );
+  const staleDraft = {
+    id: "stale-listing",
+    account_id: draftAccount.id,
+    inventory_id: base.id,
+    external_listing_id: "synthetic-remote",
+    match_status: "confirmed",
+    title: "Older preparation",
+    draft_version: 2,
+    draft_context: {
+      inventory_id: "different-item",
+      account_id: draftAccount.id,
+      fields: { title: "Different physical item" },
+    },
+    desired_fields: { title: "Different physical item" },
+    external_identifiers: {},
+    observed_at: null,
+  };
+  await act(async () =>
+    draftRoot.render(
+      React.createElement(DraftDialog, {
+        ...draftProps,
+        key: "stale-context",
+        data: { ...draftData, listings: [staleDraft] },
+      }),
+    ),
+  );
+  await fill(
+    draftLabel("Marketplace account").querySelector("select"),
+    "synthetic-shop",
+  );
+  await fill(
+    draftLabel("Listing record").querySelector("select"),
+    "stale-listing",
+  );
+  assert.match(draftHost.textContent, /prepared for a different item link/);
+  assert.equal(
+    Array.from(draftHost.querySelectorAll("button")).find(
+      (n) => n.textContent === "Prepare for this shop",
+    ).disabled,
+    true,
+  );
+  assert.equal(
+    draftSaves.length,
+    1,
+    "Stale item copy cannot silently seed a new save",
+  );
+  console.log(
+    "PASS guided draft blocks stale physical-item context after a manual relink",
+  );
+  for (const scenario of ["different-draft", "newer-edits"]) {
+    let recoveredCloses = 0,
+      failDraft = true;
+    const retrySaves = [];
+    const recovered = {
+      id: "recovered-listing",
+      account_id: draftAccount.id,
+      inventory_id:
+        scenario === "different-draft" ? "other-physical-item" : base.id,
+      external_listing_id: null,
+      draft_version: 1,
+      draft_context: { inventory_id: base.id, account_id: draftAccount.id },
+      desired_fields: { description: "Earlier copy" },
+    };
+    await act(async () =>
+      draftRoot.render(
+        React.createElement(DraftDialog, {
+          ...draftProps,
+          key: scenario,
+          save: async (input) => {
+            retrySaves.push(input);
+            if (failDraft) throw new Error("An earlier draft needs recovery");
+          },
+          retry: async () => recovered,
+          onClose: () => {
+            recoveredCloses++;
+          },
+        }),
+      ),
+    );
+    await fill(
+      draftLabel("Marketplace account").querySelector("select"),
+      "synthetic-shop",
+    );
+    await fill(draftLabel("Listing record").querySelector("select"), "new");
+    await act(() =>
+      Array.from(draftHost.querySelectorAll("button"))
+        .find((n) => n.textContent === "Prepare for this shop")
+        .click(),
+    );
+    await fill(
+      draftLabel("Prepared description").querySelector("textarea"),
+      "Earlier submitted copy",
+    );
+    await act(async () =>
+      draftHost
+        .querySelector("form")
+        .dispatchEvent(
+          new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+        ),
+    );
+    await fill(
+      draftLabel("Prepared description").querySelector("textarea"),
+      "Current edits must survive recovery",
+    );
+    await act(async () =>
+      Array.from(draftHost.querySelectorAll("button"))
+        .find((n) => n.textContent === "Retry pending draft save")
+        .click(),
+    );
+    assert.equal(
+      recoveredCloses,
+      0,
+      "Recovery must never close the current draft form",
+    );
+    assert.equal(
+      draftLabel("Prepared description").querySelector("textarea").value,
+      "Current edits must survive recovery",
+    );
+    assert.match(draftHost.textContent, /current edits are still here/);
+    failDraft = false;
+    await act(async () =>
+      draftHost
+        .querySelector("form")
+        .dispatchEvent(
+          new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+        ),
+    );
+    assert.equal(
+      retrySaves.at(-1).overrides.description,
+      "Current edits must survive recovery",
+    );
+    assert.equal(retrySaves.at(-1).inventory_id, base.id);
+    assert.equal(
+      retrySaves.at(-1).listing_id,
+      scenario === "different-draft" ? undefined : "recovered-listing",
+    );
+    assert.equal(
+      retrySaves.at(-1).expected_version,
+      scenario === "different-draft" ? 0 : 1,
+    );
+    assert.equal(
+      recoveredCloses,
+      1,
+      "Only the explicit current-form save closes it",
+    );
+  }
+  console.log(
+    "PASS recovering draft A preserves open draft B; recovering an older payload preserves newer edits until explicitly saved",
+  );
+  await act(() => draftRoot.unmount());
+  draftHost.remove();
+  console.log(
+    "PASS guided draft requires explicit shop/record, leaves price/shipping unknown, separates shared facts and overrides, preserves item cost and refreshes after save",
+  );
 } finally {
   dom.window.close();
 }
