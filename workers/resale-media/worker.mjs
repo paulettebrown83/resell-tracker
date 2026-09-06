@@ -1,3 +1,4 @@
+import {listingPhotoRoute} from './listing-photos.mjs';
 /** Private originals gateway. No secret, token, request body, or upstream error logging. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const BUCKET = 'paulette-resale-originals-prod';
@@ -65,7 +66,9 @@ async function receipt(env, row, hash, size, mime) {
 }
 async function route(request, env) {
   if (!/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(env.SUPABASE_URL || '') || !env.SUPABASE_PUBLISHABLE_KEY || !/^[a-f0-9]{64}$/.test(env.MEDIA_RECEIPT_KEY || '')) fail(503, 'Photo service is not configured.');
-  const url = new URL(request.url), match = url.pathname.match(/^\/v1\/media\/([0-9a-f-]+)$/);
+  const url = new URL(request.url);
+  if(url.pathname.startsWith('/v1/listing-photo'))return listingPhotoRoute(request,env,{api,fail,json,hex,detectMime});
+  const match = url.pathname.match(/^\/v1\/media\/([0-9a-f-]+)$/);
   if (!match || !UUID.test(match[1]) || url.search) fail(404, 'Not found.');
   if (!['PUT','GET'].includes(request.method)) fail(405, 'Method not allowed.');
   const row = await reservation(request, env, match[1]);
@@ -103,7 +106,7 @@ const worker = {
     else if (request.method === 'OPTIONS') {
       const method = request.headers.get('Access-Control-Request-Method');
       const headers = (request.headers.get('Access-Control-Request-Headers') || '').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
-      response = origin && ['PUT','GET'].includes(method) && headers.every(h=>['authorization','content-type'].includes(h)) ? new Response(null,{status:204,headers:{'Access-Control-Allow-Methods':'GET, PUT','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600'}}) : json({error:'Preflight denied.'},403);
+      response = origin && ['PUT','GET','POST'].includes(method) && headers.every(h=>['authorization','content-type'].includes(h)) ? new Response(null,{status:204,headers:{'Access-Control-Allow-Methods':'GET, PUT, POST','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600'}}) : json({error:'Preflight denied.'},403);
     } else {
       try { response = await route(request,env); }
       catch (error) { response = json({error:error instanceof HttpError ? error.message : 'Photo service is temporarily unavailable. Retry the same original.'}, error instanceof HttpError ? error.status : 503); }
