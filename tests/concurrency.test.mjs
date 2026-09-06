@@ -96,6 +96,27 @@ try {
   assert.equal((await admin.query('select version from public.sales where id=$1',[sale.id])).rows[0].version,2)
   assert.equal((await admin.query('select count(*)::int as n from public.sale_history where sale_id=$1',[sale.id])).rows[0].n,2)
   console.log('PASS native PostgreSQL: competing corrections reject the stale version and retain one audit entry per change')
+  // The additive resale outbox uses SKIP LOCKED: another independent worker must not
+  // receive an already-leased job, and an expired lease must require verification.
+  const outboxItem=await item(), account=randomUUID(), listing=randomUUID(), snapshot=randomUUID(), observation=randomUUID()
+  await admin.query("insert into public.resale_accounts(id,marketplace,account_alias,capabilities,connection_status) values($1,'vinted','synthetic','{\"delist\":\"supported\"}','connected')",[account])
+  await admin.query("insert into public.resale_snapshots(id,account_id,source,source_ref,observed_at,scope,coverage) values($1,$2,'manual','synthetic',clock_timestamp(),'one listing','complete')",[snapshot,account])
+  await admin.query("insert into public.resale_listings(id,account_id,external_listing_id,inventory_id,match_status,matched_at,match_evidence) values($1,$2,'synthetic-listing',$3,'confirmed',now(),'{\"sku\":\"confirmed\"}')",[listing,account,outboxItem])
+  await admin.query("insert into public.resale_observations(id,snapshot_id,account_id,listing_id,observed_at,status,external_listing_id) values($1,$2,$3,$4,clock_timestamp(),'active','synthetic-listing')",[observation,snapshot,account,listing])
+  const outboxSale=await save(a,{...payload,inventory_id:outboxItem})
+  const action=(await admin.query('select id from public.resale_actions where sale_id=$1',[outboxSale.id])).rows[0].id
+  await admin.query('select private.resale_release_delist($1,$2)',[action,observation])
+  await a.query('reset role; set role service_role');await b.query('reset role; set role service_role')
+  await a.query('begin')
+  const claim=(await a.query('select * from private.resale_claim_delist()')).rows[0]
+  assert.equal(claim.id,action)
+  assert.equal((await b.query('select * from private.resale_claim_delist()')).rows[0].id,null)
+  await a.query('commit')
+  await admin.query("update public.resale_actions set lease_expires_at=clock_timestamp()-interval '1 second' where id=$1",[action])
+  assert.equal((await b.query('select * from private.resale_claim_delist()')).rows[0].id,null)
+  assert.equal((await admin.query('select state from public.resale_actions where id=$1',[action])).rows[0].state,'uncertain')
+  assert.equal((await admin.query('select count(*)::int as n from public.resale_action_attempts where action_id=$1',[action])).rows[0].n,1)
+  console.log('PASS native PostgreSQL: independent workers cannot claim same delist; expired lease becomes uncertain without duplicate attempt')
 } finally {
   await Promise.allSettled(clients.map(client => client.end()))
   await postgres.stop()

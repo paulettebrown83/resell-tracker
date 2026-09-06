@@ -1,10 +1,11 @@
 # Repository guidance
 
-This is Paulette's existing Next.js resale app. Read README.md and docs/ROLLOUT.md before changes. The prepared security migration is not a verified production deployment.
+This is Paulette's existing Next.js resale app. Read README.md and docs/ROLLOUT.md before changes. The Google-authenticated foundation is deployed; new workbench additions remain subject to their own rollout gates.
 
 - Codex handles authorized review, fixes, merges and deployment mechanics. Explain a PR (pull request) as a reviewed package of changes; give Paulette plain-language outcomes and only the next decision/action she actually needs. Do not ask her to operate squash/merge workflows.
 - Use Comet; the connected browser extension may label its Chromium family as Chrome. Verify the native app before using that connection.
-- `app/page.tsx` holds inventory/expense/report UI. `components/AuthGate.tsx` handles password login and membership gating. `components/SaleEditor.tsx` captures actual sale values and corrections. `lib/supabase.ts` owns browser data access and uncertain-request retries.
+- `app/page.tsx` holds inventory/expense/report UI. `components/AuthGate.tsx` handles Google login and membership gating. `components/SaleEditor.tsx` captures actual sale values and corrections. `lib/supabase.ts` owns browser data access and uncertain-request retries.
+- Shared resale item/account/listing/media/evidence contracts are in `lib/resale-contract.ts`, browser helpers in `lib/resale-data.ts`, and the implementation boundary in `docs/RESALE_DATA.md`. Unknown costs are NULL, not zero; observed marketplace state is separate from listing preparation.
 - Membership rules and narrowly authorized atomic sale functions live in `supabase/migrations/`. Preserve original IDs, source identity, history and request records. Never restore broad public policies or delete inventory to mark it sold.
 - New sales require actual fee/shipping; do not add assumed marketplace rates. Unknown historical cost is not zero. Net payout excludes marketplace deductions; avoid counting already deducted shipping twice.
 - The public repository must contain no business row dumps, Auth passwords, service keys or Vault values. Public project configuration belongs in `.env.local`/Vercel, with placeholders only in `.env.example`.

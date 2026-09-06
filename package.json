@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs",
+    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs && node tests/resale-workbench.test.mjs",
     "test:concurrency": "node tests/concurrency.test.mjs",
     "typecheck": "tsc --noEmit"
   },
