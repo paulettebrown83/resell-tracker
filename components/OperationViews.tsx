@@ -1,4 +1,5 @@
 "use client";
+import { capturePricingExpectation } from "@/lib/resale-pricing";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase, requireAccess } from "@/lib/supabase";
@@ -499,7 +500,7 @@ export function OperationRequestDialog({
               }
             : {}),
           ...(listing && outbound(action as OperationKind)
-            ? { prepared_fields: listing.desired_fields }
+            ? { prepared_fields: listing.desired_fields, pricing_expectation: (() => { const pricing = data.pricing?.find((p) => p.listing_id === listing.id); return pricing ? capturePricingExpectation(pricing) : null; })() }
             : {}),
         },
       };

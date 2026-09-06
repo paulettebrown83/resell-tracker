@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs && node tests/resale-workbench.test.mjs && node tests/resale-source-records.test.mjs && npm run test:media && node tests/intake-retry.test.mjs && node tests/workbench-ui.test.mjs && node tests/match-retry.test.mjs && node tests/resale-matching.test.mjs && npm run test:drafts && node tests/resale-operations.test.mjs && node tests/draft-retry.test.mjs && node tests/operation-retry.test.mjs && npm run test:gmail-runtime && npm run test:gmail-db",
+    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs && node tests/resale-workbench.test.mjs && node tests/resale-source-records.test.mjs && npm run test:media && node tests/intake-retry.test.mjs && node tests/workbench-ui.test.mjs && node tests/match-retry.test.mjs && node tests/resale-matching.test.mjs && npm run test:drafts && node tests/resale-operations.test.mjs && node tests/draft-retry.test.mjs && node tests/operation-retry.test.mjs && npm run test:gmail-runtime && npm run test:gmail-db && npm run test:pricing",
     "test:concurrency": "node tests/concurrency.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:media": "node --test tests/media-worker.test.mjs tests/media-client.test.mjs",
@@ -17,7 +17,9 @@
     "test:operations-concurrency": "node tests/resale-operations-concurrency.test.mjs",
     "test:gmail-runtime": "node --test tests/gmail-runtime.test.mjs tests/gmail-proxy.test.mjs",
     "test:gmail-db": "node tests/resale-gmail-feed.test.mjs && node tests/gmail-hosted-script.test.mjs",
-    "test:gmail-db-concurrency": "node tests/resale-gmail-feed-concurrency.test.mjs"
+    "test:gmail-db-concurrency": "node tests/resale-gmail-feed-concurrency.test.mjs",
+    "test:pricing": "node tests/resale-pricing.test.mjs && node tests/pricing-ui.test.mjs",
+    "test:pricing:concurrency": "node tests/resale-pricing-concurrency.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.115.0",

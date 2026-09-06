@@ -1,0 +1,37 @@
+import { baseline, migrate } from './helpers.mjs';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+const db=await baseline();
+try {
+ await migrate(db);
+ const owner=randomUUID(), other=randomUUID(), account=randomUUID(), listing=randomUUID(), snapshot=randomUUID();
+ await db.query('insert into auth.users values($1),($2)',[owner,other]);
+ await db.query("insert into private.memberships(user_id,area) values($1,'resale'),($2,'resale')",[owner,other]);
+ await db.query("insert into public.resale_accounts(id,marketplace,account_alias,external_account_id) values($1,'mercari','synthetic','seller1')",[account]);
+ await db.query("insert into public.resale_listings(id,account_id,external_listing_id) values($1,$2,'m1')",[listing,account]);
+ await db.query("insert into public.resale_snapshots(id,account_id,source,source_ref,observed_at,scope,coverage) values($1,$2,'browser','synthetic',now(),'one listing','partial')",[snapshot,account]);
+ const at=new Date().toISOString(), pricing={currency:'USD',asking_minor:2000,mechanism:'mercari_smart_pricing',enabled:true,minimum_minor:1700};
+ async function source(p=pricing,extra={}) {const id=randomUUID();await db.query("insert into public.resale_source_records(id,snapshot_id,account_id,record_key,source_kind,raw_business,normalized,external_identifiers,source_observed_at,captured_at,record_status) values($1,$2,$3,$1::uuid::text,'browser','{}',$4,$5,$6,now(),'accepted')",[id,snapshot,account,JSON.stringify({pricing:p}),JSON.stringify({listing_id:'m1',account_id:'seller1',...extra}),at]);return id;}
+ const s=await source();const id=randomUUID();
+ const record=(member=owner,request=id,src=s)=>db.query('select public.resale_record_pricing_observation($1,$2,$3,$4) id',[member,request,listing,src]);
+ const get=async()=>(await db.query('select * from public.resale_listing_pricing')).rows[0];
+ const role=async(r,u='')=>{await db.exec(`reset role;set role ${r}`);await db.query("select set_config('request.jwt.claim.sub',$1,false)",[u]);};
+ const deny=(f,code)=>assert.rejects(f,e=>!code||e.code===code);
+ await role('service_role');assert.equal((await record()).rows[0].id,id);assert.equal((await record()).rows[0].id,id);
+ assert.equal((await get()).enabled,true);assert.equal((await get()).minimum_minor,1700);assert.equal((await get()).pricing_status,'observed');
+ await deny(()=>record(other),'40001');await deny(()=>db.query('delete from public.resale_pricing_observations'),'42501');
+ await role('authenticated',owner);assert.equal((await get()).pricing_observation_id,id);await deny(()=>record(),'42501');
+ await role('anon');await deny(()=>get(),'42501');
+ await role('postgres');const wrong=await source(pricing,{listing_id:'m2'});await deny(()=>record(owner,randomUUID(),wrong),'22023');
+ const conflicting=await source({...pricing,enabled:false,minimum_minor:null});await record(owner,randomUUID(),conflicting);
+ assert.equal((await get()).pricing_status,'conflict');assert.equal((await get()).pricing_observation_id,null);assert.equal((await get()).asking_minor,null);
+ await deny(()=>db.query("update public.resale_pricing_observations set enabled=false"),'55000');
+ await db.query("update public.resale_listings set external_listing_id='m2' where id=$1",[listing]);assert.equal((await get()).pricing_status,'target_changed');await deny(()=>record(),'22023');
+ await db.query("update public.resale_listings set external_listing_id='m1' where id=$1",[listing]);
+ const action=randomUUID();await db.query("insert into public.resale_actions(id,listing_id,action,idempotency_key,reason,payload) values($1,$2,'update',$1::uuid::text,'synthetic','{\"prepared_fields\":{\"price\":20}}')",[action,listing]);
+ assert((await db.query('select blockers from public.resale_actions where id=$1',[action])).rows[0].blockers.some(x=>x.code==='pricing_execution_unavailable'));
+ await deny(()=>db.query("update public.resale_actions set state='running' where id=$1",[action]),'55000');await deny(()=>db.query("update public.resale_actions set state='succeeded' where id=$1",[action]),'55000');
+ await db.query("delete from private.memberships where user_id=$1 and area='resale'",[owner]);await role('service_role');await deny(()=>record(),'42501');await role('authenticated',owner);assert.equal((await db.query('select * from public.resale_listing_pricing')).rows.length,0);
+ await role('postgres');for(const table of ['inventory','sales','resale_order_lines'])assert.equal((await db.query(`select count(*) n from public.${table}`)).rows[0].n,0);
+ console.log('PASS pricing exact source/actor retry, membership and revocation, conflicting facts, unknowns, immutable evidence, and unavailable price execution without canonical effects');
+} catch(e) { console.error(e.message); process.exitCode=1; } finally { await db.close(); }

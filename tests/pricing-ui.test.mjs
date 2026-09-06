@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+import {createRequire} from 'node:module';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+const require=createRequire(import.meta.url);
+function compile(file,imports={}) {const m={exports:{}};const code=ts.transpileModule(fs.readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;new Function('require','module','exports',code)(n=>imports[n]||require(n),m,m.exports);return m.exports;}
+const domain=compile('../lib/resale-pricing.ts');
+const Panel=compile('../components/ListingPricingState.tsx',{'@/lib/resale-pricing':domain}).default;
+const p={listing_id:'listing',account_id:'account',external_listing_id:'m1',inventory_id:null,draft_version:2,pricing_observation_id:'observation',observed_at:new Date().toISOString(),pricing_status:'observed',currency:'USD',asking_minor:2000,mechanism:'mercari_smart_pricing',enabled:true,minimum_minor:1700};
+const html=p=>renderToStaticMarkup(React.createElement(Panel,{pricing:p,externalListingId:'m1'}));
+assert.match(html(p),/Smart Pricing: on/);assert.match(html(p),/Minimum \$17.00/);assert.match(html(p),/marketplace controls price reductions/);
+assert.match(html({...p,mechanism:'poshmark_smart_sell',enabled:false,minimum_minor:null}),/Smart Sell offers: off/);
+assert.match(html({...p,minimum_minor:null}),/Minimum price not verified/);
+assert.match(html(undefined),/not checked/);assert.match(html({...p,pricing_status:'conflict',pricing_observation_id:null,asking_minor:null,minimum_minor:null}),/Conflicting/);
+assert.match(html({...p,pricing_status:'stale',enabled:false}),/fresh marketplace check/);
+assert.match(html({...p,mechanism:'poshmark_smart_sell'}),/automatic offers/);
+const expected=domain.capturePricingExpectation(p);assert.equal(expected.policy,'preserve_platform');assert.match(domain.pricingConflict(p,expected),/blocked/);
+const off={...p,enabled:false};assert.equal(domain.pricingConflict(off,expected),null);
+for(const changed of [{draft_version:3},{pricing_observation_id:'new'},{inventory_id:'different'},{account_id:'other'},{external_listing_id:'new'}])assert.match(domain.pricingConflict({...off,...changed},expected),/out of date/);
+assert.equal(domain.capturePricingExpectation({...p,pricing_status:'conflict'}),null);
+assert.equal(renderToStaticMarkup(React.createElement(Panel,{pricing:p,externalListingId:null})),'');
+assert.match(html(p),/Remote price updates are not connected/);
+console.log('PASS rendered mode/floor/unknown/conflict/stale distinctions, no remote-write claim, exact captured target and version checks');
