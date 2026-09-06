@@ -7,6 +7,7 @@ import React, { act, useState } from 'react'
 
 const dom = new JSDOM('<!doctype html><div id="root"></div>', { url: 'http://localhost' })
 globalThis.window = dom.window
+globalThis.self = dom.window
 globalThis.document = dom.window.document
 globalThis.HTMLElement = dom.window.HTMLElement
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -22,6 +23,7 @@ const client = {
       return { data: { subscription: { unsubscribe() { unsubscribed = true } } } }
     }
   } },
+  signInWithGoogle: async () => {},
   requireAccess() {
     const check = Promise.withResolvers()
     checks.push(check)
@@ -119,8 +121,17 @@ try {
   assert.equal(draftInput(), null, 'Sign-out immediately hides the current form')
   await settle(pendingBeforeSignOut)
   assert.equal(draftInput(), null, 'Pending validation cannot restore a signed-out account')
-  assert.ok(document.querySelector('input[type="password"]'))
+  assert.ok([...document.querySelectorAll('button')].some(button => button.textContent === 'Continue with Google'))
+  assert.equal(document.querySelector('input[type="password"]'), null)
   console.log('PASS sign-out remains denied when an older permission response arrives')
+
+  await emit('SIGNED_IN', owner)
+  await settle(checks.at(-1))
+  await act(() => root.render(React.createElement(AuthGate, {area:'genealogy'}, React.createElement(DraftForm))))
+  assert.equal(draftInput(), null, 'Resale permission cannot briefly authorize genealogy')
+  await settle(checks.at(-1), false)
+  assert.equal(draftInput(), null)
+  console.log('PASS changing app area requires its own successful permission check')
 
   for (const shipping of [null, 0, 4.5]) {
     await act(() => root.render(React.createElement(SaleEditor, {

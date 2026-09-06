@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>📖 Book of Snippets</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0ebe3;
+      min-height: 100vh;
+      padding: 30px 20px;
+      color: #2c2c2c;
+    }
+
+    .app-wrapper {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      color: #4a3728;
+      letter-spacing: 0.5px;
+    }
+
+    header p {
+      color: #7a6a5a;
+      margin-top: 6px;
+      font-size: 0.95rem;
+    }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 2px solid #d4c8b8;
+      padding-bottom: 0;
+    }
+
+    .tab-btn {
+      padding: 10px 22px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+      color: #7a6a5a;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      border-radius: 4px 4px 0 0;
+      transition: all 0.15s;
+    }
+
+    .tab-btn:hover { background: #e8dfd4; color: #4a3728; }
+    .tab-btn.active { color: #4a3728; font-weight: 600; border-bottom-color: #8b5e3c; background: #faf7f3; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── FORM CARD ── */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 18px 20px;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field.span-2 { grid-column: span 2; }
+    .field.span-4 { grid-column: span 4; }
+
+    label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #5a4a3a;
+    }
+
+    label .req { color: #c0392b; margin-left: 2px; }
+
+    input[type="text"],
+    input[type="url"],
+    select,
+    textarea {
+      padding: 9px 12px;
+      border: 1.5px solid #d4c8b8;
+      border-radius: 7px;
+      font-size: 0.93rem;
+      background: #fdfbf8;
+      color: #2c2c2c;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: inherit;
+      width: 100%;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #8b5e3c;
+      box-shadow: 0 0 0 3px rgba(139,94,60,0.12);
+    }
+
+    input::placeholder, textarea::placeholder { color: #b0a090; }
+
+    textarea { resize: vertical; min-height: 90px; }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      grid-column: span 4;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 18px; height: 18px;
+      accent-color: #8b5e3c;
+      cursor: pointer;
+    }
+
+    .checkbox-row label {
+      font-size: 0.9rem;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    /* ── BUTTONS ── */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 26px;
+      justify-content: flex-end;
+    }
+
+    button {
+      padding: 10px 26px;
+      border-radius: 7px;
+      border: none;
+      font-size: 0.93rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: #8b5e3c;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #6e4a2e; }
+    .btn-primary:disabled { background: #c4a98a; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: #f0ebe3;
+      color: #5a4a3a;
+      border: 1.5px solid #d4c8b8;
+    }
+    .btn-secondary:hover { background: #e3d8cc; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      padding: 14px 22px;
+      border-radius: 9px;
+      font-size: 0.93rem;
+      font-weight: 500;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.3s;
+      z-index: 9999;
+      max-width: 320px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.success { background: #2d6a4f; color: #fff; }
+    #toast.error   { background: #c0392b; color: #fff; }
+
+    /* ── RECORDS TABLE ── */
+    .table-controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .search-input {
+      flex: 1;
+      min-width: 200px;
+      padding: 9px 14px;
+      border: 1.5px solid #d4c8b8;
+      border-radius: 7px;
+      font-size: 0.93rem;
+      background: #fdfbf8;
+      font-family: inherit;
+    }
+    .search-input:focus { outline: none; border-color: #8b5e3c; }
+
+    .records-count {
+      font-size: 0.85rem;
+      color: #7a6a5a;
+      white-space: nowrap;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1.5px solid #d4c8b8;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    thead {
+      background: #4a3728;
+      color: #f5ede3;
+    }
+
+    thead th {
+      padding: 11px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #ede5d8;
+      transition: background 0.1s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #faf6f1; }
+
+    tbody td {
+      padding: 10px 14px;
+      vertical-align: top;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-death   { background: #f5ddd8; color: #8b2010; }
+    .badge-birth   { background: #d8f0e0; color: #1a6635; }
+    .badge-marriage { background: #d8e8f5; color: #1a3d6e; }
+    .badge-other   { background: #ede8f5; color: #4a2d8b; }
+
+    .verified-check { color: #2d6a4f; font-size: 1.1rem; }
+
+    .action-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 3px 7px;
+      border-radius: 5px;
+      font-size: 0.88rem;
+      transition: background 0.1s;
+    }
+    .action-btn:hover { background: #f0ebe3; }
+
+    .link-cell a {
+      color: #8b5e3c;
+      text-decoration: none;
+      font-size: 0.82rem;
+    }
+    .link-cell a:hover { text-decoration: underline; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #9a8a7a;
+    }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 10px; }
+
+    .loading { text-align: center; padding: 40px; color: #9a8a7a; }
+
+    /* ── PERSON LOOKUP ── */
+    .lookup-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .lookup-bar input {
+      flex: 1;
+      padding: 11px 16px;
+      border: 1.5px solid #d4c8b8;
+      border-radius: 7px;
+      font-size: 1rem;
+      background: #fdfbf8;
+      font-family: inherit;
+    }
+    .lookup-bar input:focus { outline: none; border-color: #8b5e3c; box-shadow: 0 0 0 3px rgba(139,94,60,0.12); }
+
+    .person-summary {
+      background: #faf3e8;
+      border: 1.5px solid #e0c99a;
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-bottom: 20px;
+    }
+
+    .person-summary h2 {
+      font-size: 1.15rem;
+      color: #4a3728;
+      margin-bottom: 8px;
+    }
+
+    .person-summary .pages-line {
+      font-size: 0.9rem;
+      color: #5a4a3a;
+      margin-bottom: 10px;
+    }
+
+    .page-pill {
+      display: inline-block;
+      background: #8b5e3c;
+      color: #fff;
+      border-radius: 99px;
+      padding: 3px 11px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin: 2px 3px;
+    }
+
+    .person-entry {
+      background: #fff;
+      border: 1.5px solid #e8dfd4;
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 14px;
+    }
+
+    .person-entry-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .person-entry-header .page-tag {
+      background: #4a3728;
+      color: #f5ede3;
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .entry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px 18px;
+      font-size: 0.88rem;
+    }
+
+    .entry-field label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #9a8a7a;
+      margin-bottom: 2px;
+    }
+
+    .entry-field span {
+      color: #2c2c2c;
+    }
+
+    .entry-field.wide {
+      grid-column: span 3;
+    }
+
+    .entry-field a {
+      color: #8b5e3c;
+      text-decoration: none;
+    }
+    .entry-field a:hover { text-decoration: underline; }
+
+    .no-lookup {
+      text-align: center;
+      padding: 60px 20px;
+      color: #9a8a7a;
+    }
+    .no-lookup .icon { font-size: 2.5rem; margin-bottom: 10px; }
+
+    @media (max-width: 768px) {
+      .form-grid { grid-template-columns: 1fr 1fr; }
+      .field.span-4 { grid-column: span 2; }
+      .checkbox-row { grid-column: span 2; }
+    }
+    @media (max-width: 500px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .field.span-2, .field.span-4, .checkbox-row { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-wrapper">
+  <header>
+    <h1>📖 The Book of Snippets</h1>
+    <p>Genealogy record tracker — every person, every page</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('add')">➕ Add Person</button>
+    <button class="tab-btn" onclick="switchTab('records')">📋 View Records</button>
+    <button class="tab-btn" onclick="switchTab('lookup')">🔍 Person Lookup</button>
+  </div>
+
+  <!-- ── ADD PERSON TAB ── -->
+  <div id="tab-add" class="tab-panel active">
+    <div class="card">
+      <form id="snippetForm">
+        <div class="form-grid">
+
+          <div class="field">
+            <label>Name <span class="req">*</span></label>
+            <input type="text" id="name" placeholder="As listed in the book" required />
+          </div>
+
+          <div class="field">
+            <label>Last Name</label>
+            <input type="text" id="last_name" placeholder="For sorting" />
+          </div>
+
+          <div class="field">
+            <label>Page #</label>
+            <input type="text" id="page_number" placeholder="e.g. 42" />
+          </div>
+
+          <div class="field">
+            <label>Type</label>
+            <select id="type">
+              <option value="">— Select —</option>
+              <option value="Death">Death</option>
+              <option value="Birth">Birth</option>
+              <option value="Marriage">Marriage</option>
+              <option value="Obituary">Obituary</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Date of Article</label>
+            <input type="text" id="date_of_article" placeholder="e.g., 1913, April 14" />
+          </div>
+
+          <div class="field">
+            <label>Date of Death</label>
+            <input type="text" id="date_of_death" placeholder="e.g., 1913, April 14" />
+          </div>
+
+          <div class="field">
+            <label>Location</label>
+            <input type="text" id="location" placeholder="" />
+          </div>
+
+          <div class="field">
+            <label>Grave Location</label>
+            <input type="text" id="grave_location" placeholder="" />
+          </div>
+
+          <div class="field span-2">
+            <label>Find A Grave Link</label>
+            <input type="text" id="find_a_grave_url" placeholder="https://..." />
+          </div>
+
+          <div class="field">
+            <label>Maiden Name</label>
+            <input type="text" id="maiden_name" placeholder="" />
+          </div>
+
+          <div class="field">
+            <label>Birth Date</label>
+            <input type="text" id="birth_date" placeholder="" />
+          </div>
+
+          <div class="field span-2">
+            <label>Correct Name</label>
+            <input type="text" id="correct_name" placeholder="Their verified real name" />
+          </div>
+
+          <div class="field span-2">
+            <label>Relatives</label>
+            <input type="text" id="relatives" placeholder="Names of relatives mentioned" />
+          </div>
+
+          <div class="field span-4">
+            <label>Brief Notes</label>
+            <textarea id="brief_notes" placeholder="Quick summary of the snippet..."></textarea>
+          </div>
+
+          <div class="field span-4">
+            <label>Deep Dive Notes</label>
+            <textarea id="deep_dive_notes" placeholder="In-depth research, loose ends, questions to follow up on..."></textarea>
+          </div>
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="verified" />
+            <label for="verified">Verified — this record has been confirmed</label>
+          </div>
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="tik_tok_done" />
+            <label for="tik_tok_done">TikTok Done ✓</label>
+          </div>
+
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="btn-secondary" onclick="clearForm()">Clear</button>
+          <button type="submit" class="btn-primary" id="saveBtn">💾 Save Person</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── PERSON LOOKUP TAB ── -->
+  <div id="tab-lookup" class="tab-panel">
+    <div class="card">
+      <div class="lookup-bar">
+        <input type="text" id="lookupInput" placeholder="Type a name to look up all their appearances…" oninput="debounceLookup()" />
+        <button class="btn-primary" onclick="runLookup()">Search</button>
+      </div>
+      <div id="lookupResults">
+        <div class="no-lookup">
+          <div class="icon">🔍</div>
+          <p>Enter a name above to see every page they appear on.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RECORDS TAB ── -->
+  <div id="tab-records" class="tab-panel">
+    <div class="card">
+      <div class="table-controls">
+        <input class="search-input" type="text" id="searchInput" placeholder="🔍 Search by name, location, type..." oninput="filterRecords()" />
+        <span class="records-count" id="recordsCount"></span>
+        <button class="btn-primary" style="padding:9px 18px" onclick="loadRecords()">↻ Refresh</button>
+      </div>
+      <div id="tableContainer">
+        <div class="loading">Loading records…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // Existing interface, hosted with the app's authenticated, scope-limited record API.
+  if (window === window.parent) {
+    document.body.innerHTML = '<p><a href="/genealogy">Open Book of Snippets and sign in</a></p>';
+    throw new Error('Open this interface through /genealogy');
+  }
+  const api = {
+    getRecords: (...args) => window.parent.foundationGenealogy.getRecords(...args),
+    saveRecord: (...args) => window.parent.foundationGenealogy.saveRecord(...args),
+    archiveRecord: (...args) => window.parent.foundationGenealogy.archiveRecord(...args)
+  };
+  let editVersion = null;
+  let allRecords = [];
+
+  // ── Tabs ──────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    const tabIndex = {add:0, records:1, lookup:2}[tab];
+    document.querySelectorAll('.tab-btn')[tabIndex].classList.add('active');
+    if (tab === 'records') loadRecords();
+  }
+
+  function switchTabDirect(tab) {
+    const tabMap = { add: 0, records: 1, lookup: 2 };
+    document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === tabMap[tab]));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+  }
+
+  // ── Form submit ───────────────────────────────────────────
+  document.getElementById('snippetForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    const record = {
+      name:            val('name'),
+      last_name:       val('last_name'),
+      page_number:     val('page_number'),
+      type:            val('type'),
+      date_of_article: val('date_of_article'),
+      date_of_death:   val('date_of_death'),
+      location:        val('location'),
+      grave_location:  val('grave_location'),
+      find_a_grave_url:val('find_a_grave_url'),
+      maiden_name:     val('maiden_name'),
+      birth_date:      val('birth_date'),
+      correct_name:    val('correct_name'),
+      relatives:       val('relatives'),
+      brief_notes:     val('brief_notes'),
+      deep_dive_notes: val('deep_dive_notes'),
+      verified:        document.getElementById('verified').checked,
+      tik_tok_done:    document.getElementById('tik_tok_done').checked,
+    };
+
+    // Remove empty strings so DB stays clean
+    Object.keys(record).forEach(k => {
+      if (record[k] === '') record[k] = null;
+    });
+
+    let error;
+    try { await api.saveRecord(record); } catch (cause) { error = cause; }
+
+    btn.disabled = false;
+    btn.textContent = '💾 Save Person';
+
+    if (error) {
+      showToast('❌ Error saving: ' + error.message, 'error');
+    } else {
+      showToast('✅ Saved successfully!', 'success');
+      clearForm();
+    }
+  });
+
+  function val(id) {
+    return document.getElementById(id).value.trim();
+  }
+
+  function clearForm() {
+    document.getElementById('snippetForm').reset();
+    delete document.getElementById('saveBtn').dataset.editId;
+    document.getElementById('saveBtn').textContent = '💾 Save Person';
+    editVersion = null;
+  }
+
+  // ── Load records ──────────────────────────────────────────
+  async function loadRecords() {
+    document.getElementById('tableContainer').innerHTML = '<div class="loading">Loading…</div>';
+
+    let data, error;
+    try { data = await api.getRecords(); } catch (cause) { error = cause; }
+
+    if (error) {
+      document.getElementById('tableContainer').innerHTML =
+        '<div class="empty-state"><div class="icon">⚠️</div><p>Could not load records: ' + esc(error.message) + '</p></div>';
+      return;
+    }
+
+    allRecords = (data || []).sort((a,b) => (a.last_name || '').localeCompare(b.last_name || '') || (a.name || '').localeCompare(b.name || ''));
+    renderTable(allRecords);
+  }
+
+  function filterRecords() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    if (!q) { renderTable(allRecords); return; }
+    const filtered = allRecords.filter(r =>
+      [r.name, r.last_name, r.correct_name, r.location, r.type, r.page_number, r.relatives]
+        .some(v => v && v.toLowerCase().includes(q))
+    );
+    renderTable(filtered);
+  }
+
+  function renderTable(records) {
+    document.getElementById('recordsCount').textContent = records.length + ' record' + (records.length !== 1 ? 's' : '');
+
+    if (!records.length) {
+      document.getElementById('tableContainer').innerHTML =
+        '<div class="empty-state"><div class="icon">📭</div><p>No records found.</p></div>';
+      return;
+    }
+
+    const rows = records.map(r => `
+      <tr>
+        <td><strong>${esc(r.name)}</strong>${r.correct_name ? '<br><span style="color:#7a6a5a;font-size:0.82rem">' + esc(r.correct_name) + '</span>' : ''}</td>
+        <td>${esc(r.last_name)}</td>
+        <td style="text-align:center">${esc(r.page_number)}</td>
+        <td>${typeBadge(r.type)}</td>
+        <td>${esc(r.date_of_article)}</td>
+        <td>${esc(r.date_of_death)}</td>
+        <td>${esc(r.location)}</td>
+        <td class="link-cell">${safeLink(r.find_a_grave_url) ? '<a href="' + esc(safeLink(r.find_a_grave_url)) + '" target="_blank" rel="noopener noreferrer">🪦 View</a>' : ''}</td>
+        <td style="text-align:center">${r.verified ? '<span class="verified-check">✓</span>' : ''}</td>
+        <td>
+          <button class="action-btn" title="Edit" onclick="editRecord(${r.id})">✏️</button>
+          <button class="action-btn" title="Archive" onclick="deleteRecord(${r.id})">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+
+    document.getElementById('tableContainer').innerHTML = `
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Last Name</th>
+              <th>Page</th>
+              <th>Type</th>
+              <th>Date of Article</th>
+              <th>Date of Death</th>
+              <th>Location</th>
+              <th>Find A Grave</th>
+              <th>✓</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function typeBadge(type) {
+    if (!type) return '';
+    const cls = { Death:'badge-death', Birth:'badge-birth', Marriage:'badge-marriage' }[type] || 'badge-other';
+    return `<span class="badge ${cls}">${esc(type)}</span>`;
+  }
+
+  // ── Delete ────────────────────────────────────────────────
+  async function deleteRecord(id) {
+    const record = allRecords.find(r => r.id === id);
+    if (!record || !confirm('Archive "' + record.name + '"? Its original record is kept.')) return;
+    try {
+      await api.archiveRecord(id, record.updated_at);
+      showToast('Archived; original record kept', 'success');
+      await loadRecords();
+    } catch (error) { showToast(error.message, 'error'); }
+  }
+
+  // ── Edit (load into form) ─────────────────────────────────
+  async function editRecord(id) {
+    let data, error;
+    try { data = (await api.getRecords()).find(r => r.id === id); } catch(cause) { error = cause; }
+    if (error || !data) { showToast('Could not load record', 'error'); return; }
+
+    const fields = ['name','last_name','page_number','type','date_of_article','date_of_death',
+                    'location','grave_location','find_a_grave_url','maiden_name','birth_date',
+                    'correct_name','relatives','brief_notes','deep_dive_notes'];
+    const typeSelect = document.getElementById('type');
+    typeSelect.querySelectorAll('[data-existing-value]').forEach(option => option.remove());
+    if (data.type && !Array.from(typeSelect.options).some(option => option.value === data.type)) {
+      const option = document.createElement('option');
+      option.value = data.type;
+      option.textContent = data.type;
+      option.dataset.existingValue = 'true';
+      typeSelect.appendChild(option);
+    }
+    fields.forEach(f => {
+      const el = document.getElementById(f);
+      if (el) el.value = data[f] || '';
+    });
+    document.getElementById('verified').checked    = !!data.verified;
+    document.getElementById('tik_tok_done').checked = !!data.tik_tok_done;
+
+    // Switch to form tab and swap button to Update
+    switchTabDirect('add');
+    const btn = document.getElementById('saveBtn');
+    btn.textContent = '💾 Update Person';
+    btn.dataset.editId = id;
+    editVersion = data.updated_at;
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast('Editing "' + data.name + '" — make changes and save', 'success');
+  }
+
+  // Override submit when in edit mode
+  document.getElementById('snippetForm').addEventListener('submit', async function handler(e) {
+    const editId = document.getElementById('saveBtn').dataset.editId;
+    if (!editId) return; // handled by original listener
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true; btn.textContent = 'Updating…';
+
+    const record = {};
+    ['name','last_name','page_number','type','date_of_article','date_of_death','location',
+     'grave_location','find_a_grave_url','maiden_name','birth_date','correct_name',
+     'relatives','brief_notes','deep_dive_notes'].forEach(f => {
+      record[f] = document.getElementById(f).value.trim() || null;
+    });
+    record.verified     = document.getElementById('verified').checked;
+    record.tik_tok_done = document.getElementById('tik_tok_done').checked;
+
+    let error;
+    try { await api.saveRecord(record, { id: Number(editId), updated_at: editVersion }); } catch(cause) { error = cause; }
+
+    btn.disabled = false; btn.textContent = '💾 Update Person';
+
+    if (error) {
+      showToast('❌ Update failed: ' + error.message, 'error');
+    } else {
+      showToast('✅ Updated!', 'success');
+      clearForm();
+    }
+  }, true);
+
+  // ── Person Lookup ─────────────────────────────────────────
+  let lookupTimer;
+  function debounceLookup() {
+    clearTimeout(lookupTimer);
+    lookupTimer = setTimeout(runLookup, 350);
+  }
+
+  async function runLookup() {
+    const q = document.getElementById('lookupInput').value.trim();
+    const container = document.getElementById('lookupResults');
+
+    if (!q) {
+      container.innerHTML = '<div class="no-lookup"><div class="icon">🔍</div><p>Enter a name above to see every page they appear on.</p></div>';
+      return;
+    }
+
+    container.innerHTML = '<div class="loading">Searching…</div>';
+
+    let data;
+    try { data = await api.getRecords(); } catch(error) {
+      container.innerHTML = '<p>' + esc(error.message) + '</p>'; return;
+    }
+    const query = q.toLocaleLowerCase();
+    const results = data.filter(r => [r.name, r.correct_name].some(value => value && value.toLocaleLowerCase().includes(query)));
+    results.sort((a, b) => (a.page_number || '').localeCompare(b.page_number || '', undefined, { numeric: true }));
+
+    if (!results.length) {
+      container.innerHTML = '<div class="no-lookup"><div class="icon">📭</div><p>No entries found for "<strong>' + esc(q) + '</strong>".</p></div>';
+      return;
+    }
+
+    const pages = [...new Set(results.map(r => r.page_number).filter(Boolean))];
+    const pillsHtml = pages.map(p => `<span class="page-pill">p. ${esc(p)}</span>`).join(' ');
+
+    const displayName = results[0].correct_name || results[0].name;
+    const summaryHtml = `
+      <div class="person-summary">
+        <h2>📖 ${esc(displayName)}</h2>
+        <div class="pages-line"><strong>${results.length}</strong> appearance${results.length !== 1 ? 's' : ''} found across pages: ${pillsHtml}</div>
+      </div>`;
+
+    const entriesHtml = results.map(r => {
+      const fields = [
+        r.date_of_article  ? { label: 'Date of Article', val: r.date_of_article } : null,
+        r.date_of_death    ? { label: 'Date of Death',   val: r.date_of_death }   : null,
+        r.location         ? { label: 'Location',        val: r.location }        : null,
+        r.grave_location   ? { label: 'Grave Location',  val: r.grave_location }  : null,
+        r.maiden_name      ? { label: 'Maiden Name',     val: r.maiden_name }     : null,
+        r.birth_date       ? { label: 'Birth Date',      val: r.birth_date }      : null,
+        r.correct_name     ? { label: 'Correct Name',    val: r.correct_name }    : null,
+        r.relatives        ? { label: 'Relatives',       val: r.relatives }       : null,
+      ].filter(Boolean);
+
+      const fieldsHtml = fields.map(f => `
+        <div class="entry-field">
+          <label>${esc(f.label)}</label>
+          <span>${esc(f.val)}</span>
+        </div>`).join('');
+
+      const notesHtml = [
+        r.brief_notes     ? `<div class="entry-field wide"><label>Brief Notes</label><span>${esc(r.brief_notes)}</span></div>` : '',
+        r.deep_dive_notes ? `<div class="entry-field wide"><label>Deep Dive Notes</label><span>${esc(r.deep_dive_notes)}</span></div>` : '',
+        safeLink(r.find_a_grave_url) ? `<div class="entry-field wide"><label>Find A Grave</label><span><a href="${esc(safeLink(r.find_a_grave_url))}" target="_blank" rel="noopener noreferrer">🪦 View Memorial</a></span></div>` : '',
+      ].join('');
+
+      const flags = [
+        r.verified     ? '✅ Verified'      : '',
+        r.tik_tok_done ? '📱 TikTok Done'  : '',
+      ].filter(Boolean).join('  ·  ');
+
+      return `
+        <div class="person-entry">
+          <div class="person-entry-header">
+            <span class="page-tag">Page ${esc(r.page_number || '?')}</span>
+            ${typeBadge(r.type)}
+            <span style="font-weight:600;color:#4a3728">${esc(r.name)}</span>
+            ${flags ? '<span style="font-size:0.82rem;color:#7a6a5a;margin-left:auto">' + flags + '</span>' : ''}
+          </div>
+          <div class="entry-grid">
+            ${fieldsHtml}
+            ${notesHtml}
+          </div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = summaryHtml + entriesHtml;
+  }
+
+  // ── Toast ─────────────────────────────────────────────────
+  let toastTimer;
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.className = '', 3500);
+  }
+
+  // ── Escape HTML ───────────────────────────────────────────
+  function safeLink(value) {
+    try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) ? url.href : ''; }
+    catch { return ''; }
+  }
+  function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>

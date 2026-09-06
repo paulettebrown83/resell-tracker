@@ -2,7 +2,34 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { flowType: 'pkce', detectSessionInUrl: false }
+})
+
+// Google secrets stay in Supabase's provider configuration. The browser only starts the OAuth flow.
+export async function signInWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: new URL('/auth/callback', window.location.origin).href,
+      queryParams: { prompt: 'select_account' }
+    }
+  })
+  if (error) throw new Error('Google sign-in could not start. Please try again.')
+}
+export async function completeGoogleSignIn(search: string) {
+  const params = new URLSearchParams(search)
+  if (params.has('error') || params.has('error_code')) {
+    throw new Error('Google sign-in was cancelled or could not finish. Please start again.')
+  }
+  const code = params.get('code')
+  if (!code || params.getAll('code').length !== 1 || params.getAll('sb_flow_id').length > 1) {
+    throw new Error('This sign-in link is incomplete. Please start Google sign-in again.')
+  }
+  const flowId = params.get('sb_flow_id') || undefined
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code, flowId ? { flowId } : undefined)
+  if (error || !data.session) throw new Error('This sign-in link expired or could not be verified. Please start again in this browser.')
+}
 
 export type Sale = {
   id: string; item_name: string; platform: string; sale_date: string
@@ -30,10 +57,10 @@ export function requireWritableDeployment() {
     throw new Error('This preview is read only. Use the production app to save records.')
   }
 }
-export async function requireAccess() {
-  const { data, error } = await supabase.rpc('resale_access')
+export async function requireAccess(area: 'resale' | 'genealogy' = 'resale') {
+  const { data, error } = await supabase.rpc(area === 'genealogy' ? 'genealogy_access' : 'resale_access')
   if (error) throw error
-  if (!data) throw new Error('This account has not been granted resale access.')
+  if (!data) throw new Error('This account has not been granted access to these records.')
 }
 // Page in stable primary-key order: Supabase's default response limit must not truncate exports.
 async function allRows<T>(table: string): Promise<T[]> {
