@@ -1,0 +1,5 @@
+[functions.resale-gmail-sync]
+# This mixed server endpoint performs explicit Auth/state/HMAC checks for each operation.
+# Google callback and signed scheduler ticks cannot supply a Supabase user JWT.
+verify_jwt = false
+entrypoint = "./functions/resale-gmail-sync/index.mjs"

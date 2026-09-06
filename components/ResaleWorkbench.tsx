@@ -1567,6 +1567,7 @@ export default function ResaleWorkbench({
         <footer className="wb-footer">
           <span>Made for your next chapter.</span>
           <span>Private inventory · Preserved history</span>
+          <Link href="/integrations/gmail">Gmail notification feed</Link>
         </footer>
       </main>
       {operationContext && workbench && (

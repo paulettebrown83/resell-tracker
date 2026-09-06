@@ -1,5 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { supabase, requireAccess } from "@/lib/supabase";
 import Dialog from "./WorkbenchDialog";
 import {
   isPreparedDraftCurrent,
@@ -40,6 +42,25 @@ const modeLabels = {
   human_required: "A person must do this step",
   unavailable: "Execution route not enabled",
 };
+function GmailFeedSummary() {
+  const [state, setState] = useState<{ rows: Array<{id:string;status:string;last_success_at:string|null;last_error_code:string|null}>; error: boolean } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        await requireAccess();
+        const {data,error}=await supabase.from('resale_gmail_feeds').select('id,status,last_success_at,last_error_code');
+        if(error)throw error;
+        if(alive)setState({rows:data,error:false});
+      } catch { if(alive)setState({rows:[],error:true}); }
+    })();
+    return () => { alive=false; };
+  }, []);
+  return <section className="wb-note"><div><strong>Vinted email notifications</strong>
+    {!state?<p>Checking feed status…</p>:state.error?<p>Feed status could not be checked. Open its connection settings to review setup.</p>:state.rows.length?state.rows.map(feed=><p key={feed.id}>{feed.status.replace(/_/g,' ')} · Last complete check: {feed.last_success_at?new Date(feed.last_success_at).toLocaleString():'not yet completed'}{feed.last_error_code?` · ${feed.last_error_code.replace(/_/g,' ')}`:''}</p>):<p>Gmail is not connected for background notification checks yet.</p>}
+    <p>Notifications create source-review tasks; they do not mark items sold or remove listings.</p><Link href="/integrations/gmail">Connect or check Gmail</Link>
+  </div></section>;
+}
 export function OperationCards({
   operations,
   data,
@@ -654,6 +675,7 @@ export function OperationActivity({
           </p>
         </div>
       </div>
+      <GmailFeedSummary />
       <div className="wb-operation-filters">
         <label className="wb-field">
           Activity marketplace
