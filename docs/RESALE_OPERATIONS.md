@@ -1,6 +1,6 @@
 # Common marketplace work queue
 
-Implemented in the operations branch; deployment and real adapter activation are separate. This migration extends `resale_actions` and `resale_action_attempts`. There is no second task queue, scheduled polling service or marketplace publishing integration hidden behind these tables.
+The reviewed operations database is deployed at hosted ledger version `20260906043002`; this release adds the shared activity interface. Real adapter activation remains separate. This migration extends `resale_actions` and `resale_action_attempts`. There is no second task queue, scheduled polling service or marketplace publishing integration hidden behind these tables.
 
 ## Browser contract
 
@@ -49,3 +49,8 @@ A listing's Request a shop step captures its exact item/account/listing, expecte
 Evidence selection is limited to the operation's account and submits only source IDs and an optional explanation. It cannot mark an operation complete. Recovery preserves exact request identity and command snapshot; a dialog closes after recovery only when the recovered command/target exactly matches its current contents. Otherwise current edits remain open. Global record tools recover the pending account-scoped request. Native execution/resume, cancellation/refund execution, label purchase/printing and periodic marketplace synchronization are not enabled by this UI.
 
 The member export adds public operation proposals and verification receipts. It also includes existing `resale_actions` columns, including `lease_token` and `lease_expires_at`; these values do not grant access to privileged dispatcher functions. Private adapter registrations, request buffers and credentials remain excluded. No new server or production credential is introduced.
+
+
+## Hosted operations acceptance
+
+The migration SQL SHA256 is `995e3921a765ad5868a2bb00e88ab2f3dec8a48cd901e16645664e5a4b1def7d`. Do not replay its local preparation filename against production. Hosted SQL-role checks passed for member/actor retries, immutable proposals, account-bound checkpoints and proof, uncertainty, current revocation, anonymous denial and unresolved identity review. All synthetic writes rolled back:25 preexisting tables matched across migration, and29 tables matched before/after acceptance. No adapter registry entries, operation tasks or synthetic proof remain. These checks do not verify a browser sign-in or a real marketplace executor.
