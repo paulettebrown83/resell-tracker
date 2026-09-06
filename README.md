@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Resale Tracker
 
-## Getting Started
+Paulette's existing Next.js/Supabase inventory, sales and expense app. This branch prepares approved-account login and a coordinated database access repair, with retained item links, atomic sale updates, correction history, source duplicate prevention and portable exports.
 
-First, run the development server:
+**Not deployed. Read [the rollout and recovery runbook](docs/ROLLOUT.md) before applying the migration.** Production still uses the old access model until the coordinated cutover. Separate genealogy/garment clients must be included in that cutover.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Local development
+
+Install the pinned lockfile with `npm ci`. Copy `.env.example` to `.env.local` and enter the staging Supabase URL and public publishable key. Never put a secret/service key into `NEXT_PUBLIC_*` variables. Run `npm run dev`.
+
+Approved permanent Supabase Auth users need an administrator-created `private.memberships` entry for `resale`. There is no public signup UI. Account administration/password reset stays in the existing Supabase administration workflow.
+
+## Checks
+
+```sh
+npm test
+npm run typecheck
+npm run lint
+npm run build
+npm audit
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`npm test` runs a fresh local PostgreSQL engine through PGlite with synthetic Auth claims. It covers role/area restrictions, view access, membership revocation, atomic linked sales, exact retries, rejected payload reuse, source uniqueness, version conflicts, corrections/voids and rollback after an injected late failure. It does not contact production.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+To verify a protected application snapshot in a fresh local database:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```sh
+node scripts/verify-backup.mjs /absolute/private/path/snapshot.json
+```
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The snapshot must remain outside Git. The full project restoration and hosted Auth/REST/concurrent-session acceptance checks remain rollout gates. `tests/baseline.sql` is a dated, structure-only test fixture; never execute it over an existing database.
