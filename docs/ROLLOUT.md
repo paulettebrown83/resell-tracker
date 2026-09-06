@@ -1,6 +1,6 @@
 # Secure resale foundation rollout
 
-Status: prepared and locally tested, **not applied to production**. Existing production exposure remains until the coordinated cutover. The migration is deliberately incompatible with the old unauthenticated clients.
+Status: draft PR and automatic Vercel preview prepared; database migration **not applied to production**. The preview displays login but cannot grant resale access until the coordinated database/account setup exists. It inherits the existing project public database configuration; do not use it for staging writes after production cutover. Existing production exposure remains until the coordinated cutover. The migration is deliberately incompatible with the old unauthenticated clients.
 
 ## What is owned here
 

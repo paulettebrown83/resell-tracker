@@ -417,6 +417,7 @@ function ResellTracker() {
                     <option value="Mercari">Mercari</option>
                     <option value="Poshmark">Poshmark</option>
                     <option value="Depop">Depop</option>
+                    <option value="Vinted">Vinted</option>
                   </select>
                   <input
                     type="date"
@@ -532,7 +533,7 @@ function ResellTracker() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-2">Platforms (Crosslisting)</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {(['eBay', 'Mercari', 'Poshmark', 'Depop'] as const).map((platform) => (
+                    {(['eBay', 'Mercari', 'Poshmark', 'Depop', 'Vinted'] as const).map((platform) => (
                       <label key={platform} className="flex items-center text-sm">
                         <input
                           type="checkbox"
@@ -599,6 +600,7 @@ function ResellTracker() {
                     <option value="Mercari">Mercari</option>
                     <option value="Poshmark">Poshmark</option>
                     <option value="Depop">Depop</option>
+                    <option value="Vinted">Vinted</option>
                   </select>
                   <input
                     type="date"

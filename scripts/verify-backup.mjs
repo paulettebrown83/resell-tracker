@@ -20,7 +20,7 @@ for(const table of snapshot.tables) {
 for(const name of ['book_of_snippets','resell_clothes']) {
   await db.exec(`select setval('public.${name}_id_seq',coalesce((select max(id) from public.${name}),1),exists(select 1 from public.${name}))`)
 }
-console.log('PASS fresh restore: all 800 records match every original field')
+console.log(`PASS fresh restore: all ${Object.values(snapshot.data).reduce((n, rows) => n + rows.length, 0)} records match every original field`)
 await migrate(db)
 for(const table of snapshot.tables) {
   const name=table.name, cols=table.columns.map(c=>'"'+c.name.replaceAll('"','""')+'"').join(',')
