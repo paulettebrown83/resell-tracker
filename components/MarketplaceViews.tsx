@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import ListingPricingState from "./ListingPricingState";
 import Icon from "./WorkbenchIcon";
 import ListingMatchDialog from "./ListingMatchDialog";
 import SourceReportBrowser, { EvidenceFields } from "./SourceReportBrowser";
@@ -263,6 +264,7 @@ export function MarketplaceViews({
               <article className="wb-listing-row" key={listing.id}>
                 <div>
                   <h3>{listing.title || "Untitled listing record"}</h3>
+                  <ListingPricingState pricing={data.pricing?.find((p) => p.listing_id === listing.id)} externalListingId={listing.external_listing_id} />
                   <p>
                     {account?.marketplace || "Unknown marketplace"} ·{" "}
                     {account?.username ||

@@ -1,3 +1,4 @@
+import type { ListingPricing } from './resale-pricing'
 import { supabase, requireAccess, requireWritableDeployment, type InventoryItem } from './supabase'
 import type { ResaleItemDetails, ResaleAccount, ResaleListing, ResaleSnapshot, ResaleMedia, ResaleAttention, ResaleAction, ResaleItemInput, ResaleSourceRecord } from './resale-contract'
 
@@ -13,17 +14,17 @@ async function rows<T>(table: string, key = 'id'): Promise<T[]> {
 export interface ResaleWorkbench {
   inventory: Array<Omit<InventoryItem, 'item_cost'> & { item_cost: number | null }>;
   details: ResaleItemDetails[]; accounts: ResaleAccount[]; listings: ResaleListing[];
-  snapshots: ResaleSnapshot[]; media: ResaleMedia[]; attention: ResaleAttention[]; actions: ResaleAction[];
+  pricing?: ListingPricing[]; snapshots: ResaleSnapshot[]; media: ResaleMedia[]; attention: ResaleAttention[]; actions: ResaleAction[];
 }
 /** A UI read, not a transaction-consistent export. Never infer absence/sale from this response. */
 export async function getResaleWorkbench(): Promise<ResaleWorkbench> {
   await requireAccess()
-  const [inventory, details, accounts, listings, snapshots, media, attention, actions] = await Promise.all([
+  const [inventory, details, accounts, listings, snapshots, media, attention, actions, pricing] = await Promise.all([
     rows<ResaleWorkbench['inventory'][number]>('inventory'), rows<ResaleItemDetails>('resale_item_details', 'inventory_id'),
     rows<ResaleAccount>('resale_accounts'), rows<ResaleListing>('resale_listings'), rows<ResaleSnapshot>('resale_snapshots'),
-    rows<ResaleMedia>('resale_media'), rows<ResaleAttention>('resale_review_cases'), rows<ResaleAction>('resale_actions'),
+    rows<ResaleMedia>('resale_media'), rows<ResaleAttention>('resale_review_cases'), rows<ResaleAction>('resale_actions'), rows<ListingPricing>('resale_listing_pricing', 'listing_id'),
   ])
-  return { inventory, details, accounts, listings, snapshots, media, attention, actions }
+  return { inventory, details, accounts, listings, snapshots, media, attention, actions, pricing }
 }
 /** Keep requestId and the exact input until success; retrying an uncertain save uses both unchanged. */
 export async function saveResaleItem(input: ResaleItemInput, requestId: string): Promise<string> {
