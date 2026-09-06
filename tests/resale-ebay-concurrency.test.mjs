@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:net'
 import EmbeddedPostgres from 'embedded-postgres'
-import {fixture,hash,rpc} from './gmail-fixture.mjs'
+import {fixture as gmailFixture,hash,rpc} from './gmail-fixture.mjs'
 
 // A disposable native PostgreSQL 17 server, with genuinely independent connections.
 // JWT claims are synthetic. Hosted OAuth/REST are separately verified during cutover.
@@ -45,7 +45,7 @@ try {
   const migrations = new URL('../supabase/migrations/', import.meta.url)
   for (const name of (await readdir(migrations)).filter(n => n.endsWith('.sql')).sort())
     await admin.query(await readFile(new URL(name, migrations), 'utf8'))
-  const {owner}=await fixture(admin),account=randomUUID();
+  const {owner}=await gmailFixture(admin),account=randomUUID();
   await admin.query("insert into public.resale_accounts(id,marketplace,account_alias,username) values($1,'ebay','synthetic','paulbr-89')",[account]);
   await admin.query("insert into private.resale_ebay_config(client_id,runame,trading_version,callback,deletion_endpoint,activation_ready,deletion_receipts_ready,deletion_coverage_review) values('synthetic','synthetic-runame','1423','https://resell-tracker-beta.vercel.app/api/integrations/ebay/callback','https://resell-tracker-beta.vercel.app/api/integrations/ebay/deletion',true,true,'synthetic-only')");
   await admin.query("insert into vault.secrets(name,secret) values('resale_ebay_production_oauth_client_secret','synthetic')");
