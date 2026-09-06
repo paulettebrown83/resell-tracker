@@ -53,12 +53,15 @@ try {
   for(const client of [a,b])await client.query('set role service_role');
   await rpc(a,'resale_ebay_oauth_start',[owner,account,hash('state'),hash('browser')]);const cfg=await rpc(a,'resale_ebay_oauth_consume',[hash('state'),hash('browser')]);await rpc(a,'resale_ebay_oauth_complete',[cfg.state_id,'paulbr-89',hash('seller'),'synthetic-token',86400]);
   const from=new Date(Date.now()-86400000).toISOString(),to=new Date(Date.now()-180000).toISOString();
-  const result={records:[{order_id:'synthetic-order',status:'Completed',paid_at:null,lines:[]}],page:1,total_pages:1,total_entries:1,has_more:false,coverage:'created_in_fixed_window',source_sha256:hash('xml'),deletion_subjects:[{eias_sha256:hash('buyer'),handle_sha256:hash('buyer-handle')}]};
-  const first=randomUUID(),one=await rpc(a,'resale_ebay_claim_read',[owner,account,first,'orders',1,from,to]);const saved=await rpc(a,'resale_ebay_finish_read',[owner,first,one.lease,result,null]);assert.equal(saved.result.deletion_subjects,undefined);assert.equal((await admin.query('select count(*)::int n from private.resale_ebay_read_subjects')).rows[0].n,1);
+  const result={records:[{order_id:'synthetic-order',status:'Completed',paid_at:null,lines:[]}],page:1,total_pages:1,total_entries:1,has_more:false,coverage:'created_in_fixed_window',source_sha256:hash('xml'),deletion_subjects:[{eias_sha256:hash('buyer')}]};
+  const first=randomUUID(),one=await rpc(a,'resale_ebay_claim_read',[owner,account,first,'orders',1,from,to]);
+  // Neither a mutable username nor an untyped immutable BuyerUserID may substitute for EIAS.
+  for(const subject of [{eias_sha256:null,handle_sha256:hash('old-username')},{eias_sha256:null,user_sha256:hash('immutable-buyer-id')}]){await assert.rejects(()=>rpc(a,'resale_ebay_finish_read',[owner,first,one.lease,{...result,deletion_subjects:[subject]},null]),error=>error.code==='22023');}
+  const saved=await rpc(a,'resale_ebay_finish_read',[owner,first,one.lease,result,null]);assert.equal(saved.result.deletion_subjects,undefined);assert.equal((await admin.query('select count(*)::int n from private.resale_ebay_read_subjects')).rows[0].n,1);
   const notice={event_id:'synthetic-buyer-delete',event_at:new Date().toISOString(),subject_eias_sha256:hash('buyer'),subject_user_sha256:hash('buyer-user'),subject_handle_sha256:hash('buyer-handle')};
   await rpc(a,'resale_ebay_deletion_receive',[notice]);assert.equal((await admin.query('select count(*)::int n from public.resale_ebay_reads')).rows[0].n,0);assert.equal((await admin.query('select status from public.resale_ebay_connections')).rows[0].status,'connected');
   const second=randomUUID(),two=await rpc(a,'resale_ebay_claim_read',[owner,account,second,'orders',1,from,to]);
-  const nextResult={...result,deletion_subjects:[{eias_sha256:hash('buyer-two'),handle_sha256:null}]};
+  const nextResult={...result,deletion_subjects:[{eias_sha256:hash('buyer-two')}]};
   const nextNotice={...notice,event_id:'synthetic-buyer-two-delete',subject_eias_sha256:hash('buyer-two')};
   await a.query('begin');await rpc(a,'resale_ebay_deletion_receive',[nextNotice]);
   const bPid=(await b.query('select pg_backend_pid() pid')).rows[0].pid;

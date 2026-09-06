@@ -29,9 +29,8 @@ create table public.resale_ebay_reads (
 create table private.resale_ebay_read_leases (
  request_id uuid primary key references public.resale_ebay_reads(id) on delete cascade,lease uuid not null,generation bigint not null,config_revision bigint not null,expires_at timestamptz not null
 );
-create table private.resale_ebay_read_subjects (request_id uuid not null references public.resale_ebay_reads(id) on delete cascade,eias_sha256 text,handle_sha256 text);
+create table private.resale_ebay_read_subjects (request_id uuid not null references public.resale_ebay_reads(id) on delete cascade,eias_sha256 text not null check(eias_sha256~'^[a-f0-9]{64}$'));
 create index ebay_read_subject_eias on private.resale_ebay_read_subjects(eias_sha256);
-create index ebay_read_subject_handle on private.resale_ebay_read_subjects(handle_sha256);
 create table private.resale_ebay_deletions (
  event_id text primary key, event_at timestamptz not null,subject_eias_sha256 text not null,subject_user_sha256 text not null,subject_handle_sha256 text not null,
  received_at timestamptz not null default now(),connection_purged_at timestamptz,
@@ -134,9 +133,9 @@ declare r public.resale_ebay_reads;c public.resale_ebay_connections;l private.re
  if not found or r.owner_id<>p_member_id or l.lease is distinct from p_lease or l.expires_at<clock_timestamp() or l.generation<>c.generation or l.config_revision<>(cfg->>'revision')::bigint or c.status<>'connected' then raise exception 'Read lease expired' using errcode='42501';end if;
  if (p_result is null)=(p_error is null) or (p_error is not null and p_error!~'^[a-z_]{1,64}$') or (p_result is not null and (jsonb_typeof(p_result)<>'object' or octet_length(p_result::text)>524288 or jsonb_typeof(p_result->'records') is distinct from 'array' or jsonb_array_length(p_result->'records')>50 or p_result->>'source_sha256' is null or p_result->>'source_sha256'!~'^[a-f0-9]{64}$' or (p_result->>'page')::integer<>r.page)) then raise exception 'Invalid read result' using errcode='22023';end if;
  if p_result is not null and r.kind='orders' then
- if jsonb_typeof(p_result->'deletion_subjects') is distinct from 'array' or jsonb_array_length(p_result->'deletion_subjects')<>jsonb_array_length(p_result->'records') or exists(select 1 from jsonb_array_elements(p_result->'deletion_subjects') x where (x->>'eias_sha256' is null and x->>'handle_sha256' is null) or (x->>'eias_sha256' is not null and x->>'eias_sha256'!~'^[a-f0-9]{64}$') or (x->>'handle_sha256' is not null and x->>'handle_sha256'!~'^[a-f0-9]{64}$')) then raise exception 'Buyer deletion binding required' using errcode='22023';end if;
- if exists(select 1 from jsonb_array_elements(p_result->'deletion_subjects') x join private.resale_ebay_deletions d on d.subject_eias_sha256=x->>'eias_sha256' or d.subject_handle_sha256=x->>'handle_sha256') then raise exception 'Subject deletion pending' using errcode='42501';end if;
- insert into private.resale_ebay_read_subjects(request_id,eias_sha256,handle_sha256) select r.id,x->>'eias_sha256',x->>'handle_sha256' from jsonb_array_elements(p_result->'deletion_subjects') x;end if;
+ if jsonb_typeof(p_result->'deletion_subjects') is distinct from 'array' or jsonb_array_length(p_result->'deletion_subjects')<>jsonb_array_length(p_result->'records') or exists(select 1 from jsonb_array_elements(p_result->'deletion_subjects') x where x->>'eias_sha256' is null or x->>'eias_sha256'!~'^[a-f0-9]{64}$' or exists(select 1 from jsonb_object_keys(x) k where k<>'eias_sha256')) then raise exception 'Buyer deletion binding required' using errcode='22023';end if;
+ if exists(select 1 from jsonb_array_elements(p_result->'deletion_subjects') x join private.resale_ebay_deletions d on d.subject_eias_sha256=x->>'eias_sha256') then raise exception 'Subject deletion pending' using errcode='42501';end if;
+ insert into private.resale_ebay_read_subjects(request_id,eias_sha256) select r.id,x->>'eias_sha256' from jsonb_array_elements(p_result->'deletion_subjects') x;end if;
  update public.resale_ebay_reads set status=case when p_error is null then 'complete' else 'failed' end,result=p_result-'deletion_subjects',error_code=p_error,completed_at=clock_timestamp() where id=r.id;
  delete from private.resale_ebay_read_leases where request_id=r.id;
  update public.resale_ebay_connections set last_read_at=case when p_error is null then clock_timestamp() else last_read_at end,last_error=p_error,status=case when p_error in ('wrong_seller','access_denied','reconnect_required') then 'reconnect_required' else status end where account_id=c.account_id;
@@ -154,7 +153,7 @@ declare old private.resale_ebay_deletions; a uuid;t private.resale_ebay_tokens;b
  perform pg_advisory_xact_lock(98340001);perform pg_advisory_xact_lock(hashtextextended(p_notice->>'event_id',9833));select * into old from private.resale_ebay_deletions where event_id=p_notice->>'event_id';
  if found then if old.event_at<>(p_notice->>'event_at')::timestamptz or old.subject_eias_sha256<>p_notice->>'subject_eias_sha256' or old.subject_user_sha256<>p_notice->>'subject_user_sha256' or old.subject_handle_sha256<>p_notice->>'subject_handle_sha256' then raise exception 'Deletion event changed' using errcode='22023';end if;return;end if;
  insert into private.resale_ebay_deletions(event_id,event_at,subject_eias_sha256,subject_user_sha256,subject_handle_sha256) values(p_notice->>'event_id',(p_notice->>'event_at')::timestamptz,p_notice->>'subject_eias_sha256',p_notice->>'subject_user_sha256',p_notice->>'subject_handle_sha256');
- delete from public.resale_ebay_reads where id in(select request_id from private.resale_ebay_read_subjects where eias_sha256=p_notice->>'subject_eias_sha256' or handle_sha256=p_notice->>'subject_handle_sha256');
+ delete from public.resale_ebay_reads where id in(select request_id from private.resale_ebay_read_subjects where eias_sha256=p_notice->>'subject_eias_sha256');
  -- This consumer immediately purges only this API integration's own read records/tokens.
  -- Historical exports/source records require the separately documented reviewed erasure workflow.
  for a in select account_id from private.resale_ebay_tokens where seller_eias_sha256=p_notice->>'subject_eias_sha256' order by account_id loop
