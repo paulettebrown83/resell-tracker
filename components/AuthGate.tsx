@@ -39,6 +39,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   }
   if (!ready) return <main className="p-8 text-white">Checking sign-in…</main>
   if (session && allowed) return <>
+    {process.env.NEXT_PUBLIC_APP_DEPLOYMENT_ENV === 'preview' && <p className="bg-amber-100 p-3 text-center text-amber-900">Preview: records are read only. Saving is disabled.</p>}
     <div className="p-3 text-right text-white text-sm">{session.user.email} <button className="underline ml-3" onClick={signOut}>Sign out</button></div>
     <div key={session.user.id}>{children}</div>
   </>

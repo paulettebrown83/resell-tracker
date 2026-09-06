@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 process.env.NEXT_PUBLIC_SUPABASE_URL='https://example.supabase.co'
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='sb_publishable_test_placeholder'
-const { supabase, saveSale, retryPendingSale } = await import('../lib/supabase.ts')
+const { supabase, saveSale, retryPendingSale, addExpense, addInventoryItem, archiveExpense, archiveInventoryItem } = await import('../lib/supabase.ts')
 const storage=new Map()
 Object.defineProperty(globalThis,'sessionStorage',{value:{
   getItem:key=>storage.get(key)??null,
@@ -38,3 +38,9 @@ await assert.rejects(()=>saveSale({sale_price:2}))
 account='synthetic-other'
 await assert.rejects(()=>retryPendingSale(),/No pending save/)
 console.log('PASS a different signed-in account cannot replay another account’s pending save')
+
+process.env.NEXT_PUBLIC_APP_DEPLOYMENT_ENV='preview'
+for (const action of [() => saveSale({}), () => retryPendingSale(), () => addExpense({}), () => addInventoryItem({}), () => archiveExpense('id'), () => archiveInventoryItem('id')]) {
+  await assert.rejects(action, /preview is read only/)
+}
+console.log('PASS preview environment blocks every application write path before network access')

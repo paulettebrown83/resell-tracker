@@ -25,6 +25,11 @@ export type SaleInput = {
   shipping_cost?: number; gross_total?: number; actual_received?: number
   reason?: string; void?: boolean; source_system?: string; source_record_id?: string
 }
+export function requireWritableDeployment() {
+  if (process.env.NEXT_PUBLIC_APP_DEPLOYMENT_ENV === 'preview') {
+    throw new Error('This preview is read only. Use the production app to save records.')
+  }
+}
 export async function requireAccess() {
   const { data, error } = await supabase.rpc('resale_access')
   if (error) throw error
@@ -54,6 +59,7 @@ async function pendingKey() {
 }
 // Preserve uncertain requests across a reload. Never silently start a second sale after a network failure.
 export async function saveSale(payload: SaleInput) {
+  requireWritableDeployment()
   const key = await pendingKey()
   const old = sessionStorage.getItem(key)
   if (old) throw new Error('A previous sale request needs verification. Use Retry pending save first.')
@@ -73,19 +79,23 @@ async function sendPending(key: string, request: { id: string; payload: SaleInpu
   return data as Sale
 }
 export async function retryPendingSale() {
+  requireWritableDeployment()
   const key = await pendingKey(), raw = sessionStorage.getItem(key)
   if (!raw) throw new Error('No pending save in this browser tab.')
   return sendPending(key, JSON.parse(raw), true)
 }
 export async function addInventoryItem(item: Pick<InventoryItem, 'item_name' | 'item_cost' | 'platforms' | 'date_added'>) {
+  requireWritableDeployment()
   const { error } = await supabase.from('inventory').insert(item)
   if (error) throw error
 }
 export async function addExpense(item: Pick<Expense, 'name' | 'amount' | 'date_added'>) {
+  requireWritableDeployment()
   const { error } = await supabase.from('expenses').insert(item)
   if (error) throw error
 }
 async function archive(table: 'inventory' | 'expenses', id: string) {
+  requireWritableDeployment()
   const { data, error } = await supabase.from(table).update({ archived_at: new Date().toISOString() }).eq('id', id).select('id')
   if (error) throw error
   if (!data.length) throw new Error('Record was not updated. Check access and reload.')

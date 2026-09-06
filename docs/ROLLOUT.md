@@ -1,6 +1,6 @@
 # Secure resale foundation rollout
 
-Status: draft PR and automatic Vercel preview prepared; database migration **not applied to production**. The preview displays login but cannot grant resale access until the coordinated database/account setup exists. It inherits the existing project public database configuration; do not use it for staging writes after production cutover. Existing production exposure remains until the coordinated cutover. The migration is deliberately incompatible with the old unauthenticated clients.
+Status: draft PR and automatic Vercel preview prepared; database migration **not applied to production**. The preview displays login but cannot grant resale access until the coordinated database/account setup exists. It inherits the existing project public database configuration; all application write paths are disabled in Vercel preview builds, including pending retries. Approved logins can read records after cutover. Existing production exposure remains until the coordinated cutover. The migration is deliberately incompatible with the old unauthenticated clients.
 
 ## What is owned here
 
@@ -18,7 +18,7 @@ The browser has only a public Supabase URL and publishable key (legacy anon key 
 
 ## Cutover sequence
 
-Prepare and verify the compatible app deployment first. Configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in the consuming Vercel environment; public configuration needs no Vault copy. Review production environment inheritance for previews: a preview must not accidentally write production records.
+Prepare and verify the compatible app deployment first. Configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in the consuming Vercel environment; public configuration needs no Vault copy. Review production environment inheritance for previews: preview builds explicitly block application writes. A full staging acceptance test needs an isolated Supabase backend and a controlled deployment environment that permits test writes.
 
 During a coordinated write pause, take and verify the fresh backup, recheck schema drift and migration history, apply the single reviewed SQL migration, and add only approved Auth UUID memberships using `scripts/grant-member.sql`. Migrations already existed in the hosted project before this repository tracked SQL; do not blindly run `supabase db push`, reset the database, or replay `tests/baseline.sql`. Use the migration API/SQL administration with the reviewed migration and record its version once. Do not import the test fixture into production.
 
