@@ -26,7 +26,7 @@ import {
   type OperationRecovery,
 } from "@/lib/resale-operation-retry";
 import { OPERATION_LABELS } from "@/lib/workbench";
-import { gmailOperationContext } from "@/lib/gmail-operation-context";
+import { gmailOperationContext, groupGmailActivity } from "@/lib/gmail-operation-context";
 const stateLabels = {
   blocked: "Needs a next step",
   queued: "Waiting to run",
@@ -667,6 +667,7 @@ export function OperationActivity({
         row.marketplace.toLowerCase() === marketplace) &&
       (includeFinished || !["succeeded", "cancelled"].includes(row.state)),
   );
+  const entries = groupGmailActivity(rows, sources, data.attention);
   if (error)
     return (
       <div className="wb-alert" role="alert">
@@ -736,13 +737,18 @@ export function OperationActivity({
       <p className="wb-help" role="status">
         {rows.length} saved requests match these filters.
       </p>
-      <OperationCards
-        sources={sources}
-        operations={rows.slice(0, limit)}
-        data={data}
-        onEvidence={onEvidence}
-        onItem={onItem}
-      />
+      {entries.slice(0, limit).map(entry => entry.feedId ? (
+        <section className="wb-panel wb-operation-card" key={entry.key} aria-label="Grouped Vinted notices">
+          <p className="wb-eyebrow">Vinted · {data.accounts.find(account => account.id === entry.accountId)?.username || 'Saved account'}</p>
+          <h3>Review unrecognized Vinted notices</h3>
+          <p><strong>{entry.operations.length} saved notices</strong> need a supported format/account check.</p>
+          <p className="wb-help">An unconfirmed greeting does not prove a different account. Each message remains saved and unresolved; this group does not confirm a sale or shipment.</p>
+          <details className="wb-operation-detail">
+            <summary>Show all {entry.operations.length} saved notices</summary>
+            <OperationCards operations={entry.operations} sources={sources} data={data} onEvidence={onEvidence} onItem={onItem} />
+          </details>
+        </section>
+      ) : <OperationCards key={entry.key} operations={entry.operations} sources={sources} data={data} onEvidence={onEvidence} onItem={onItem} />)}
       {!rows.length && (
         <section className="wb-panel wb-empty">
           <h2>No requests in this view.</h2>
@@ -753,7 +759,7 @@ export function OperationActivity({
           </p>
         </section>
       )}
-      {rows.length > limit && (
+      {entries.length > limit && (
         <button
           className="wb-button wb-button-secondary"
           onClick={() => setLimit(limit + 20)}

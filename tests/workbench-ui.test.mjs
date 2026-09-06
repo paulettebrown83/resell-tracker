@@ -900,7 +900,7 @@ try {
   await renderMail([{...gmailSource, normalized: {...gmailSource.normalized, parser_status: 'quarantined', quarantine_reason: 'mailbox_account_mismatch', product_titles: ['UNTRUSTED TITLE']}}]);
   assert.match(operationHost.querySelector('h3').textContent, /Review unrecognized Vinted email/);
   assert.match(mailContext().textContent, /Item not identified/);
-  assert.match(mailContext().textContent, /could not be tied to this Vinted account/);
+  assert.match(mailContext().textContent, /expected account greeting was not confirmed/);
   assert.doesNotMatch(mailContext().textContent, /UNTRUSTED TITLE/);
   const legacySource = {...gmailSource, normalized: {title: 'OLDER TITLE'}, raw_business: {}, source_observed_at: '2026-09-06T18:00:00Z'};
   const parserReview = {id: 'review-exact', evidence: {operation_id: gmailOperation.id, source_record_id: gmailSource.id, parser_version: 'vinted-gmail-v1', new_parser_facts: gmailSource.normalized, legacy_source_reused: true}};
@@ -1126,6 +1126,80 @@ try {
     /Activity unavailable/,
   );
   assert.doesNotMatch(operationHost.textContent, /No requests/);
+  const {groupGmailActivity} = load('lib/gmail-operation-context.ts');
+  const feedId = '11111111-1111-4111-8111-111111111111';
+  const notices = Array.from({length: 41}, (_, i) => ({...gmailOperation,
+    id: `format-${i}`, action: 'import', attempts: 0, proposal_count: 0,
+    blockers: [{code: 'source_conflict', message: 'Source needs checking'}],
+    trigger: {kind: 'source_record', id: `notice-source-${i}`}}));
+  const noticeSources = notices.map((op, i) => ({...gmailSource, id: op.trigger.id,
+    external_identifiers: {gmail_message_id: (100 + i).toString(16)},
+    normalized: {...gmailSource.normalized, notification_kind: 'unknown', parser_status: 'quarantined', quarantine_reason: 'mailbox_account_mismatch'}}));
+  const noticeReviews = notices.map((op, i) => ({id: `notice-review-${i}`, state: 'open', evidence: {
+    operation_id: op.id, source_record_id: op.trigger.id, parser_version: 'vinted-gmail-v1',
+    feed_id: feedId, gmail_message_id: noticeSources[i].external_identifiers.gmail_message_id,
+    canonical_effect: 'none', new_parser_facts: noticeSources[i].normalized,
+  }}));
+  const frozenNotices = JSON.stringify([notices, noticeSources, noticeReviews]);
+  assert.equal(groupGmailActivity(notices, noticeSources, noticeReviews).length, 1);
+  for (const change of [{action: 'reconcile_sale'}, {action: 'reconcile_shipping'}, {action: 'reconcile_cancellation'},
+    {state: 'running'}, {state: 'failed'}, {state: 'uncertain'}, {state: 'cancelled'}, {state: 'succeeded'},
+    {attempts: 1}, {proposal_count: 1}, {last_error: 'network_error'}, {inventory_id: base.id}, {listing_id: 'listing'},
+    {latest_outcome: 'uncertain'}, {verification_id: 'proof'}, {verification_observation_id: 'observation'},
+    {adapter_key: 'other'}, {blockers: [{code: 'runtime_error', message: 'Technical failure'}]}]) {
+    assert.equal(groupGmailActivity([{...notices[0], ...change}], noticeSources, noticeReviews)[0].feedId, null, JSON.stringify(change));
+  }
+  for (const change of [{feed_id: 'invalid'}, {gmail_message_id: 'different'}, {operation_id: 'another'},
+    {source_record_id: 'another'}, {canonical_effect: 'sale'},
+    ...['sender_authentication', 'unsupported_body', 'ambiguous_subject'].map(quarantine_reason => ({new_parser_facts: {...noticeSources[0].normalized, quarantine_reason}})),
+    {new_parser_facts: {...noticeSources[0].normalized, authentication_pass: false}},
+    {new_parser_facts: {...noticeSources[0].normalized, parser_status: 'recognized'}}]) {
+    assert.equal(groupGmailActivity([notices[0]], noticeSources, [{...noticeReviews[0], evidence: {...noticeReviews[0].evidence, ...change}}])[0].feedId, null, JSON.stringify(change));
+  }
+  assert.equal(groupGmailActivity([notices[0]], noticeSources, [noticeReviews[0], noticeReviews[0]])[0].feedId, null);
+  assert.equal(groupGmailActivity([notices[0]], [{...noticeSources[0], account_id: 'another'}], noticeReviews)[0].feedId, null);
+  assert.equal(groupGmailActivity([notices[0]], noticeSources, [{...noticeReviews[0], state: 'resolved'}])[0].feedId, null);
+  assert.equal(groupGmailActivity([{...notices[0], action: 'reconcile_sale'}], [{...noticeSources[0], normalized: {title: 'Legacy real sale'}}], noticeReviews)[0].feedId, null);
+  const otherFeedReview = {...noticeReviews[1], evidence: {...noticeReviews[1].evidence, feed_id: '22222222-2222-4222-8222-222222222222'}};
+  assert.equal(groupGmailActivity(notices.slice(0, 2), noticeSources, [noticeReviews[0], otherFeedReview]).length, 2);
+  assert.equal(groupGmailActivity([notices[0], {...notices[1], account_id: 'second-account'}],
+    [noticeSources[0], {...noticeSources[1], account_id: 'second-account'}], noticeReviews).length, 2, 'Distinct accounts never share a group');
+  const allowedTemplateReview = {...noticeReviews[0], evidence: {...noticeReviews[0].evidence,
+    new_parser_facts: {...noticeSources[0].normalized, quarantine_reason: 'unrecognized_template'}}};
+  assert.equal(groupGmailActivity([notices[0]], noticeSources, [allowedTemplateReview])[0].feedId, feedId);
+  let evidenceSelected = null;
+  const groupData = {...draftData, attention: noticeReviews, accounts: [...draftData.accounts, {...draftAccount, id: 'vinted-account-filter', marketplace: 'vinted'}]};
+  const renderGroup = (ops = [...notices, gmailOperation], itemId = '') => act(async () => operationRoot.render(React.createElement(OperationActivity, {
+    operations: ops, sources: [...noticeSources, gmailSource], data: groupData, itemId, error: '',
+    onClearItem: () => {}, onEvidence: op => { evidenceSelected = op; }, onItem: () => {},
+  })));
+  await renderGroup();
+  const group = operationHost.querySelector('[aria-label="Grouped Vinted notices"]');
+  assert.ok(group);
+  assert.match(group.textContent, /41 saved notices/);
+  assert.match(group.textContent, /does not prove a different account/);
+  const disclosure = group.querySelector('details');
+  assert.equal(disclosure.open, false);
+  await act(async () => disclosure.querySelector('summary').click());
+  assert.equal(disclosure.open, true);
+  assert.equal(disclosure.querySelectorAll('article').length, 41, 'Expansion includes every source, beyond the20-entry activity page');
+  assert.match(operationHost.textContent, /Review sale notice/);
+  assert.equal(operationHost.querySelectorAll('[aria-label="Grouped Vinted notices"]').length, 1);
+  assert.doesNotMatch(operationHost.textContent, /Show more requests/, '41 grouped requests use one visible entry');
+  await act(async () => disclosure.querySelectorAll('article')[40].querySelector('button').click());
+  assert.equal(evidenceSelected.id, notices[40].id, 'Last individual entry retains its exact evidence action');
+  const marketplaceSelect = operationHost.querySelector('[aria-label="Activity marketplace"]');
+  await fill(marketplaceSelect, 'ebay');
+  assert.equal(operationHost.querySelector('[aria-label="Grouped Vinted notices"]'), null, 'Marketplace filtering precedes grouping');
+  await fill(marketplaceSelect, 'all');
+  await renderGroup([...notices, {...gmailOperation, state: 'succeeded'}], base.id);
+  assert.equal(operationHost.querySelector('[aria-label="Grouped Vinted notices"]'), null, 'Item filter excludes unrelated source-only notices');
+  await renderGroup([...notices, {...gmailOperation, state: 'succeeded'}]);
+  assert.doesNotMatch(operationHost.textContent, /Review sale notice/);
+  await act(async () => operationHost.querySelector('.wb-checkbox input').click());
+  assert.match(operationHost.textContent, /Review sale notice/, 'Finished decisions remain independently reachable');
+  assert.equal(JSON.stringify([notices, noticeSources, noticeReviews]), frozenNotices, 'Grouping never mutates saved evidence or operation objects');
+  console.log('PASS exact feed/account grouping preserves all41 entries, filters, individual actions, immutable facts, and separate transaction/error/recovery decisions');
   await act(() => operationRoot.unmount());
   operationHost.remove();
   console.log(

@@ -56,3 +56,9 @@ The detailed SQL interface is [GMAIL_FEED_RPC_CONTRACT.md](GMAIL_FEED_RPC_CONTRA
 5. Repeat all 29 fingerprints and compare exactly. Then deploy the reviewed runtime, enroll through real browser authentication, obtain Google consent and check a real bounded run separately.
 
 Local checks: `npm run test:gmail-db` and `npm run test:gmail-db-concurrency`. Local Vault functions are explicit synthetic stand-ins; they test function privileges and secret-consumer behavior, not hosted encryption. The native suite uses separate PostgreSQL connections and removes its temporary database. Hosted acceptance is also rehearsed locally and proves its 29-table fingerprints and preexisting synthetic key contents survive unchanged.
+
+## Grouped unrecognized notices
+
+Shop Activity presents untouched Vinted Gmail format/account checks as one expandable issue per exact saved feed and account. Only blocked source-only import requests with authenticated parser facts and `mailbox_account_mismatch` or `unrecognized_template` qualify. A missing expected greeting does not establish a different account. All saved notices and their individual evidence controls remain available inside the group; no request is resolved, deleted, or trusted by grouping.
+
+Sale, shipping and cancellation requests stay separate, including retained historical requests with newly quarantined parser facts. Attempts, submitted proposals, errors, uncertain results, verification, linked items/listings and technical parser failures also stay separate. Existing filters run before grouping, and pagination counts visible entries so a large notice batch cannot consume the entire first page. The separate feed status box continues to show connection/runtime errors and its recovery link. The attention total still counts underlying records; this change does not redesign that counter or change the Gmail parser, runtime, schema, credentials, or marketplace behavior.
