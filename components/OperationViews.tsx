@@ -26,6 +26,7 @@ import {
   type OperationRecovery,
 } from "@/lib/resale-operation-retry";
 import { OPERATION_LABELS } from "@/lib/workbench";
+import { gmailOperationContext } from "@/lib/gmail-operation-context";
 const stateLabels = {
   blocked: "Needs a next step",
   queued: "Waiting to run",
@@ -62,12 +63,14 @@ function GmailFeedSummary() {
   </div></section>;
 }
 export function OperationCards({
+  sources = [],
   operations,
   data,
   onEvidence,
   onItem,
 }: {
   operations: ResaleOperation[];
+  sources?: ResaleSourceRecord[];
   data: ResaleWorkbench;
   onEvidence: (operation: ResaleOperation) => void;
   onItem?: (id: string) => void;
@@ -82,6 +85,7 @@ export function OperationCards({
             (row) => row.id === operation.inventory_id,
           ),
           url = safeMarketplaceUrl(operation.deep_link, operation.marketplace);
+        const mail = gmailOperationContext(operation, sources, data.attention);
         const verified = Boolean(
           operation.verification_id || operation.verification_observation_id,
         );
@@ -98,7 +102,7 @@ export function OperationCards({
                     "Saved account"}
                 </p>
                 <h3>
-                  {OPERATION_LABELS[operation.action] || "Marketplace step"}
+                  {mail?.heading || OPERATION_LABELS[operation.action] || "Marketplace step"}
                 </h3>
               </div>
               <span
@@ -109,11 +113,15 @@ export function OperationCards({
                   : stateLabels[operation.state]}
               </span>
             </div>
-            <p>
-              {item?.item_name ||
-                listing?.title ||
-                "Account-level evidence review"}
-            </p>
+            {mail ? <section aria-label="Saved email context">
+              <p><strong>{mail.titles.length ? 'Item named in email:' : 'Item not identified from this email.'}</strong>{mail.titles.length ? ` ${mail.titles.join('; ')}` : ''}{mail.additionalTitles > 0 ? `; ${mail.additionalTitles} more item names in the saved evidence` : ''}</p>
+              <p className="wb-help">{mail.receivedAt ? <>Email received: <time dateTime={mail.receivedAt}>{new Date(mail.receivedAt).toLocaleString()}</time>. This is the email receipt time, not the sale time.</> : 'Email received time was not saved. No sale date is inferred.'}</p>
+              <p><strong>Why review is needed:</strong> {mail.reason}</p>
+              {mail.legacyComparison && <p className="wb-help">New parser details also need comparison with the retained historical source.</p>}
+              {(item || listing) && <p className="wb-help">Current linked record: {item?.item_name || listing?.title}. The item name in the email is separate evidence.</p>}
+            </section> : <p>
+              {item?.item_name || listing?.title || 'Account-level evidence review'}
+            </p>}
             <p className="wb-help">
               {modeLabels[operation.execution_mode]}. The saved mode describes
               the route; the next step and blockers show whether it can run.
@@ -631,6 +639,7 @@ export function OperationRequestDialog({
 }
 
 export function OperationActivity({
+  sources = [],
   operations,
   error,
   data,
@@ -640,6 +649,7 @@ export function OperationActivity({
   onItem,
 }: {
   operations: ResaleOperation[];
+  sources?: ResaleSourceRecord[];
   error: string;
   data: ResaleWorkbench;
   itemId: string;
@@ -727,6 +737,7 @@ export function OperationActivity({
         {rows.length} saved requests match these filters.
       </p>
       <OperationCards
+        sources={sources}
         operations={rows.slice(0, limit)}
         data={data}
         onEvidence={onEvidence}

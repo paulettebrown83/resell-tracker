@@ -873,6 +873,56 @@ try {
       /run|resume|mark.*(done|complete)/i.test(n.textContent),
     ),
   );
+  const gmailOperation = {
+    ...operation, id: "gmail-review", marketplace: "vinted", adapter_key: "vinted-gmail",
+    action: "reconcile_sale", trigger: {kind: "source_record", id: "gmail-source"},
+  };
+  const gmailSource = {
+    ...opSource, id: "gmail-source", source_kind: "email", source_observed_at: "2026-09-04T12:30:00Z",
+    raw_business: {received_at: "2026-09-04T12:30:00Z", buyer: "PRIVATE BUYER", body: "PRIVATE BODY"},
+    normalized: {parser_version: "vinted-gmail-v1", notification_kind: "sale_notification", parser_status: "recognized", authentication_pass: true, product_titles: ["Synthetic linen jacket"], subject: "PRIVATE SUBJECT"},
+  };
+  let mailEvidenceClicks = 0;
+  const renderMail = async (sources, attention = [], currentOperation = gmailOperation) => act(async () =>
+    operationRoot.render(React.createElement(OperationCards, {
+      operations: [currentOperation], sources, data: {...draftData, attention},
+      onEvidence: () => { mailEvidenceClicks += 1; },
+    })),
+  );
+  await renderMail([gmailSource]);
+  const mailContext = () => operationHost.querySelector('[aria-label="Saved email context"]');
+  assert.match(operationHost.querySelector('h3').textContent, /Review sale notice/);
+  assert.match(mailContext().textContent, /Item named in email: Synthetic linen jacket/);
+  assert.equal(mailContext().querySelector('time').dateTime, '2026-09-04T12:30:00.000Z');
+  assert.match(mailContext().textContent, /not the sale time/);
+  assert.match(mailContext().textContent, /Check the exact shop transaction and physical item/);
+  assert.doesNotMatch(mailContext().textContent, /PRIVATE BUYER|PRIVATE BODY|PRIVATE SUBJECT/);
+  await renderMail([{...gmailSource, normalized: {...gmailSource.normalized, parser_status: 'quarantined', quarantine_reason: 'mailbox_account_mismatch', product_titles: ['UNTRUSTED TITLE']}}]);
+  assert.match(operationHost.querySelector('h3').textContent, /Review unrecognized Vinted email/);
+  assert.match(mailContext().textContent, /Item not identified/);
+  assert.match(mailContext().textContent, /could not be tied to this Vinted account/);
+  assert.doesNotMatch(mailContext().textContent, /UNTRUSTED TITLE/);
+  const legacySource = {...gmailSource, normalized: {title: 'OLDER TITLE'}, raw_business: {}, source_observed_at: '2026-09-06T18:00:00Z'};
+  const parserReview = {id: 'review-exact', evidence: {operation_id: gmailOperation.id, source_record_id: gmailSource.id, parser_version: 'vinted-gmail-v1', new_parser_facts: gmailSource.normalized, legacy_source_reused: true}};
+  await renderMail([legacySource], [parserReview]);
+  assert.match(mailContext().textContent, /Synthetic linen jacket/);
+  assert.match(mailContext().textContent, /comparison with the retained historical source/);
+  assert.match(mailContext().textContent, /Email received time was not saved/);
+  assert.equal(mailContext().querySelector('time'), null, 'Legacy capture time cannot become email receipt time');
+  await renderMail([legacySource], [{...parserReview, evidence: {...parserReview.evidence, operation_id: 'another-operation'}}]);
+  assert.doesNotMatch(mailContext().textContent, /Synthetic linen jacket/);
+  await renderMail([{...gmailSource, account_id: 'another-account'}], [parserReview]);
+  assert.match(mailContext().textContent, /saved email details are unavailable/);
+  assert.doesNotMatch(mailContext().textContent, /Synthetic linen jacket/);
+  await renderMail([]);
+  assert.match(mailContext().textContent, /Refresh the source records/);
+  await renderMail([{...gmailSource, normalized: {...gmailSource.normalized, notification_kind: 'shipping_notification', product_titles: ['Synthetic parcel item', 'person@example.invalid', '<script>bad</script>']}}]);
+  assert.match(operationHost.querySelector('h3').textContent, /Review shipping-label notice/);
+  assert.match(mailContext().textContent, /Synthetic parcel item/);
+  assert.doesNotMatch(mailContext().textContent, /example.invalid|script/);
+  assert.equal(mailEvidenceClicks, 0, 'Reading card context never acknowledges evidence or invokes a save');
+  assert.equal(operationHost.querySelectorAll('[aria-label="Saved email context"] button').length, 0);
+  console.log('PASS Gmail cards expose exact-source item/notice/receipt-time and quarantine reason, honor linked legacy review, hide raw mail and cross-account facts, and remain read-only');
   const capturedOperation = {
     ...operation,
     listing_id: "replacement-record",
