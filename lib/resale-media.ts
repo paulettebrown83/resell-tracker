@@ -1,4 +1,5 @@
 import { supabase, requireWritableDeployment } from './supabase'
+import { mediaStage } from './media-stage'
 
 /** Original uploads are immutable. Keep this intent and the same File until confirmed. */
 export interface MediaUploadIntent { requestId: string; inventoryId: string; file: File }
@@ -15,8 +16,8 @@ function gateway() {
   if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('Photo storage address is invalid.')
   return url.origin
 }
-async function token() {
-  const { data: { session }, error } = await supabase.auth.getSession()
+async function token(signal?: AbortSignal) {
+  const { data: { session }, error } = await mediaStage('Checking photo access', signal, () => supabase.auth.getSession())
   if (error || !session) throw new Error('Sign in before accessing photos.')
   return session.access_token
 }
@@ -38,19 +39,22 @@ async function checked(response: Response) {
 export async function uploadOriginal(intent: MediaUploadIntent, signal?: AbortSignal): Promise<OriginalMedia> {
   requireWritableDeployment()
   const base = gateway() // Fail before reserving when runtime is not connected.
-  const { data: row, error } = await supabase.rpc('resale_reserve_media', {
+  const { data: row, error } = await mediaStage('Reserving this photo', signal, stageSignal => supabase.rpc('resale_reserve_media', {
     p_request_id: intent.requestId, p_inventory_id: intent.inventoryId,
     p_mime_type: intent.file.type, p_byte_size: intent.file.size,
-  })
+  }).abortSignal(stageSignal))
   if (error) throw new Error(error.message || 'Could not reserve the photo. Keep this original and retry.')
   if (row?.id !== intent.requestId || row?.inventory_id !== intent.inventoryId) throw new Error('Photo reservation did not match this item.')
-  const response = await checked(await fetch(`${base}/v1/media/${row.id}`, {
-    method: 'PUT', credentials: 'omit', cache: 'no-store', redirect: 'error', signal,
-    headers: { Authorization: `Bearer ${await token()}`, 'Content-Type': intent.file.type }, body: intent.file,
-  }))
-  const receipt = await response.json()
+  const bearer = await token(signal)
+  const receipt = await mediaStage('Saving original bytes', signal, async stageSignal => {
+    const response = await checked(await fetch(`${base}/v1/media/${row.id}`, {
+      method: 'PUT', credentials: 'omit', cache: 'no-store', redirect: 'error', signal: stageSignal,
+      headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': intent.file.type }, body: intent.file,
+    }))
+    return response.json()
+  }, 120_000)
   if (typeof receipt.receipt_payload !== 'string' || !/^[a-f0-9]{64}$/.test(receipt.receipt_signature)) throw new Error('Photo verification was not confirmed. Retry this original.')
-  const result = await supabase.rpc('finalize_resale_media', { p_receipt: receipt.receipt_payload, p_signature: receipt.receipt_signature })
+  const result = await mediaStage('Linking the saved photo', signal, stageSignal => supabase.rpc('finalize_resale_media', { p_receipt: receipt.receipt_payload, p_signature: receipt.receipt_signature }).abortSignal(stageSignal))
   if (result.error) throw new Error(result.error.message || 'Photo linking was not confirmed. Retry this original.')
   if (result.data?.id !== row.id || result.data?.state !== 'ready') throw new Error('Photo linking was not confirmed. Retry this original.')
   return result.data as OriginalMedia
@@ -58,11 +62,14 @@ export async function uploadOriginal(intent: MediaUploadIntent, signal?: AbortSi
 /** Revoke this local URL on unmount, sign-out, account change, or when replacing it. */
 export async function loadOriginalPreview(mediaId: string, signal?: AbortSignal): Promise<{ url: string; revoke: () => void }> {
   if (!/^[0-9a-f-]{36}$/.test(mediaId)) throw new Error('Invalid photo identifier.')
-  const response = await checked(await fetch(`${gateway()}/v1/media/${mediaId}`, {
-    credentials: 'omit', cache: 'no-store', redirect: 'error', signal,
-    headers: { Authorization: `Bearer ${await token()}` },
-  }))
-  const blob = await response.blob()
+  const bearer = await token(signal)
+  const blob = await mediaStage('Opening original bytes', signal, async stageSignal => {
+    const response = await checked(await fetch(`${gateway()}/v1/media/${mediaId}`, {
+      credentials: 'omit', cache: 'no-store', redirect: 'error', signal: stageSignal,
+      headers: { Authorization: `Bearer ${bearer}` },
+    }))
+    return response.blob()
+  }, 120_000)
   if (!MIMES.includes(blob.type)) throw new Error('Photo format could not be verified.')
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
   const url = URL.createObjectURL(blob)
