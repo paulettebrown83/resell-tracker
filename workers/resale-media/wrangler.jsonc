@@ -1,0 +1,14 @@
+{
+  "name": "paulette-resale-media-prod",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-09-06",
+  "workers_dev": true,
+  "r2_buckets": [{ "binding": "RESALE_ORIGINALS", "bucket_name": "paulette-resale-originals-prod" }],
+  "vars": {
+    "SUPABASE_URL": "https://PROJECT_REF.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "REPLACE_WITH_PUBLIC_PUBLISHABLE_KEY",
+    "ALLOWED_ORIGINS": "https://resell-tracker-beta.vercel.app",
+    "MAX_UPLOAD_BYTES": "20971520"
+  },
+  "observability": { "enabled": false }
+}

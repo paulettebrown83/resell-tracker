@@ -7,9 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs && node tests/resale-workbench.test.mjs",
+    "test": "node tests/database.test.mjs && node tests/client.test.mjs && node tests/components.test.mjs && node tests/oauth.test.mjs && node tests/callback.test.mjs && node tests/genealogy-interface.test.mjs && node tests/resale-workbench.test.mjs && npm run test:media",
     "test:concurrency": "node tests/concurrency.test.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:media": "node --test tests/media-worker.test.mjs tests/media-client.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.115.0",
