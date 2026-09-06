@@ -1,8 +1,22 @@
 "use client";
 import Link from "next/link";
-import type { ResaleSourceRecord } from "@/lib/resale-contract";
+import type { ResaleListing, ResaleSourceRecord } from "@/lib/resale-contract";
 import { useEffect, useMemo, useRef, useState } from "react";
 import SaleEditor from "./SaleEditor";
+import {
+  OperationActivity,
+  OperationRequestDialog,
+  OperationEvidenceDialog,
+} from "./OperationViews";
+import {
+  getResaleOperations,
+  type ResaleOperation,
+} from "@/lib/resale-operations";
+import {
+  requestOperationWithRetry,
+  submitOperationEvidenceWithRetry,
+  retryPendingOperation,
+} from "@/lib/resale-operation-retry";
 import ListingDraftDialog from "./ListingDraftDialog";
 import {
   saveDraftWithRetry,
@@ -44,6 +58,7 @@ type View =
   | "inventory"
   | "photos"
   | "marketplaces"
+  | "activity"
   | "sales"
   | "attention"
   | "expenses";
@@ -72,6 +87,7 @@ type DataSource = Pick<
 > & {
   getResaleWorkbench: typeof getResaleWorkbench;
   getResaleSourceRecords: typeof getResaleSourceRecords;
+  getResaleOperations: typeof getResaleOperations;
   saveItemWithRetry: typeof saveItemWithRetry;
   retryPendingItemSave: typeof retryPendingItemSave;
 };
@@ -81,6 +97,7 @@ const NAV: { id: View; label: string; icon: IconName }[] = [
   { id: "intake", label: "Add an item", icon: "plus" },
   { id: "photos", label: "Photos", icon: "photo" },
   { id: "marketplaces", label: "Marketplaces", icon: "store" },
+  { id: "activity", label: "Shop activity", icon: "arrow" },
   { id: "sales", label: "Sales", icon: "sale" },
   { id: "attention", label: "Needs attention", icon: "attention" },
   { id: "expenses", label: "Expenses", icon: "receipt" },
@@ -111,6 +128,11 @@ const COPY: Record<View, [string, string, string]> = {
     "Where your items are recorded, and what still needs checking.",
     "YOUR SELLING SURFACES",
   ],
+  activity: [
+    "Shop activity",
+    "Requests, next steps and checked results across your shops.",
+    "KEEP THINGS MOVING",
+  ],
   sales: [
     "Sales",
     "What sold, what came back to you, and what needs a closer look.",
@@ -131,6 +153,7 @@ const liveData = {
   ...records,
   getResaleWorkbench,
   getResaleSourceRecords,
+  getResaleOperations,
   saveItemWithRetry,
   retryPendingItemSave,
 };
@@ -226,6 +249,15 @@ export default function ResaleWorkbench({
     [reason, setReason] = useState("");
   const [draft, setDraft] = useState(createIntakeDraft());
   const [workbench, setWorkbench] = useState<WorkbenchData | null>(null);
+  const [operations, setOperations] = useState<ResaleOperation[]>([]);
+  const [operationsError, setOperationsError] = useState("");
+  const [activityItem, setActivityItem] = useState("");
+  const [operationContext, setOperationContext] = useState<{
+    listing?: ResaleListing;
+    source?: ResaleSourceRecord;
+  } | null>(null);
+  const [evidenceOperation, setEvidenceOperation] =
+    useState<ResaleOperation | null>(null);
   const [photoItem, setPhotoItem] = useState("");
   const [listingDraftItem, setListingDraftItem] =
     useState<InventoryItem | null>(null);
@@ -242,15 +274,30 @@ export default function ResaleWorkbench({
     setLoadError("");
     try {
       await dataSource.requireAccess();
-      const [nextSales, nextWorkbench, nextExpenses, nextSources] =
-        await Promise.all([
-          dataSource.getSales(),
-          dataSource.getResaleWorkbench(),
-          dataSource.getExpenses(),
-          dataSource.getResaleSourceRecords(),
-        ]);
+      const [
+        nextSales,
+        nextWorkbench,
+        nextExpenses,
+        nextSources,
+        nextOperations,
+      ] = await Promise.all([
+        dataSource.getSales(),
+        dataSource.getResaleWorkbench(),
+        dataSource.getExpenses(),
+        dataSource.getResaleSourceRecords(),
+        dataSource.getResaleOperations().then(
+          (rows) => ({ rows, error: "" }),
+          () => ({
+            rows: [] as ResaleOperation[],
+            error:
+              "Shop activity could not be loaded. Refresh records to check current requests before starting another one.",
+          }),
+        ),
+      ]);
       if (version !== loadVersion.current) return;
       setSales(nextSales);
+      setOperations(nextOperations.rows);
+      setOperationsError(nextOperations.error);
       setSourceRecords(nextSources);
       setWorkbench(nextWorkbench);
       setInventory(
@@ -269,6 +316,8 @@ export default function ResaleWorkbench({
       setExpenses([]);
       setWorkbench(null);
       setSourceRecords([]);
+      setOperations([]);
+      setOperationsError("");
       setLoadError(
         "Your records could not be loaded. Check your connection and account access, then try again.",
       );
@@ -292,6 +341,7 @@ export default function ResaleWorkbench({
     setPage(0);
     setReviewOnly(false);
     setStockScope("all");
+    setActivityItem("");
     requestAnimationFrame(() => heading.current?.focus());
   }
   function beginIntake() {
@@ -1385,8 +1435,29 @@ export default function ResaleWorkbench({
                 onItem={(item) => openEditor({ kind: "item", item })}
               />
             )}
+            {view === "activity" && workbench && (
+              <OperationActivity
+                operations={operations}
+                error={operationsError}
+                data={workbench}
+                itemId={activityItem}
+                onClearItem={() => setActivityItem("")}
+                onEvidence={setEvidenceOperation}
+                onItem={(id) => {
+                  const item = workbench.inventory.find((row) => row.id === id);
+                  if (item)
+                    openEditor({
+                      kind: "item",
+                      item: { ...item, platforms: item.platforms || [] },
+                    });
+                }}
+              />
+            )}
             {view === "marketplaces" && workbench && (
               <MarketplaceViews
+                onRequestListing={(listing) => setOperationContext({ listing })}
+                onRequestSource={(source) => setOperationContext({ source })}
+                requestsUnavailable={Boolean(operationsError)}
                 confirmMatch={confirmMatch}
                 onChanged={loadData}
                 sources={sourceRecords}
@@ -1479,6 +1550,18 @@ export default function ResaleWorkbench({
             >
               Retry pending marketplace draft
             </button>
+            <button
+              className="wb-text-button"
+              disabled={writeDisabled}
+              onClick={() =>
+                mutate(
+                  () => retryPendingOperation(),
+                  "Pending shop request verified. Current requests refreshed.",
+                )
+              }
+            >
+              Retry pending shop request
+            </button>
           </div>
         </details>
         <footer className="wb-footer">
@@ -1486,6 +1569,29 @@ export default function ResaleWorkbench({
           <span>Private inventory · Preserved history</span>
         </footer>
       </main>
+      {operationContext && workbench && (
+        <OperationRequestDialog
+          context={operationContext}
+          data={workbench}
+          save={requestOperationWithRetry}
+          retry={retryPendingOperation}
+          onSaved={async () => {
+            await loadData();
+            navigate("activity");
+          }}
+          onClose={() => setOperationContext(null)}
+        />
+      )}
+      {evidenceOperation && (
+        <OperationEvidenceDialog
+          operation={evidenceOperation}
+          sources={sourceRecords}
+          save={submitOperationEvidenceWithRetry}
+          retry={retryPendingOperation}
+          onSaved={loadData}
+          onClose={() => setEvidenceOperation(null)}
+        />
+      )}
       {listingDraftItem && workbench && (
         <ListingDraftDialog
           item={listingDraftItem}
@@ -1611,10 +1717,14 @@ export default function ResaleWorkbench({
                   <Icon name="tag" size={38} />
                 </span>
                 <div>
-                  <p className="wb-eyebrow">CURRENT INVENTORY</p>
+                  <p className="wb-eyebrow">PHYSICAL ITEM RECORD</p>
                   <h3>{editor.item.item_name}</h3>
-                  <span className="wb-badge wb-badge-green">
-                    Not marked sold
+                  <span className="wb-badge">
+                    {editor.item.archived_at
+                      ? "Archived"
+                      : editor.item.status?.toLowerCase() === "sold"
+                        ? "Sold"
+                        : "Not marked sold"}
                   </span>
                 </div>
               </div>
@@ -1676,6 +1786,11 @@ export default function ResaleWorkbench({
               <div className="wb-detail-actions">
                 <button
                   className="wb-button wb-button-secondary"
+                  disabled={
+                    writeDisabled ||
+                    Boolean(editor.item.archived_at) ||
+                    editor.item.status?.toLowerCase() === "sold"
+                  }
                   onClick={() => {
                     setDraft(
                       createIntakeDraft(
@@ -1711,13 +1826,27 @@ export default function ResaleWorkbench({
               </div>
               <button
                 className="wb-button wb-button-primary"
-                disabled={writeDisabled}
+                disabled={
+                  writeDisabled ||
+                  Boolean(editor.item.archived_at) ||
+                  editor.item.status?.toLowerCase() === "sold"
+                }
                 onClick={() => {
                   setListingDraftItem(editor.item);
                   setEditor(null);
                 }}
               >
                 Prepare marketplace draft
+              </button>
+              <button
+                className="wb-button wb-button-secondary"
+                onClick={() => {
+                  setEditor(null);
+                  navigate("activity");
+                  setActivityItem(editor.item.id);
+                }}
+              >
+                Shop activity for this item
               </button>
               <LinkedItemListings
                 itemId={editor.item.id}
@@ -1749,7 +1878,12 @@ export default function ResaleWorkbench({
               <div className="wb-form-actions">
                 <button
                   className="wb-button wb-button-primary"
-                  disabled={writeDisabled || editor.item.item_cost == null}
+                  disabled={
+                    writeDisabled ||
+                    editor.item.item_cost == null ||
+                    Boolean(editor.item.archived_at) ||
+                    editor.item.status?.toLowerCase() === "sold"
+                  }
                   onClick={() =>
                     openEditor({ kind: "sale", item: editor.item, sale: null })
                   }

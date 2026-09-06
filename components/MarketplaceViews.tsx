@@ -12,7 +12,12 @@ import type { ResaleListing } from "@/lib/resale-contract";
 import type { ResaleSourceRecord } from "@/lib/resale-contract";
 import type { ResaleWorkbench } from "@/lib/resale-data";
 import type { InventoryItem, Sale } from "@/lib/supabase";
-import { MARKETPLACES, dateLabel, needsSaleReview } from "@/lib/workbench";
+import {
+  MARKETPLACES,
+  dateLabel,
+  needsSaleReview,
+  OPERATION_LABELS,
+} from "@/lib/workbench";
 export function safeMarketplaceUrl(raw: string | null, marketplace: string) {
   if (!raw) return null;
   const hosts: Record<string, string[]> = {
@@ -42,12 +47,18 @@ export function MarketplaceViews({
   onInventory,
   confirmMatch,
   onChanged,
+  onRequestListing,
+  onRequestSource,
+  requestsUnavailable,
 }: {
   data: ResaleWorkbench;
   sources: ResaleSourceRecord[];
   onInventory: (platform: string) => void;
   confirmMatch?: ConfirmMatch;
   onChanged: () => Promise<void>;
+  onRequestListing?: (listing: ResaleListing) => void;
+  onRequestSource?: (source: ResaleSourceRecord) => void;
+  requestsUnavailable?: boolean;
 }) {
   const [matching, setMatching] = useState<ResaleListing | null>(null);
   const [platform, setPlatform] = useState("all"),
@@ -74,6 +85,12 @@ export function MarketplaceViews({
   );
   return (
     <>
+      {requestsUnavailable && (
+        <div className="wb-alert" role="alert">
+          Shop request status is unavailable. Refresh records before creating
+          another request.
+        </div>
+      )}
       <div className="wb-note wb-market-notice">
         <Icon name="attention" size={22} />
         <div>
@@ -201,7 +218,11 @@ export function MarketplaceViews({
           );
         })}
       </div>
-      <SourceReportBrowser data={data} sources={sources} />
+      <SourceReportBrowser
+        data={data}
+        sources={sources}
+        onRequestCheck={requestsUnavailable ? undefined : onRequestSource}
+      />
       <section className="wb-panel wb-listing-panel">
         <div className="wb-section-heading">
           <div>
@@ -279,6 +300,18 @@ export function MarketplaceViews({
                     >
                       Open marketplace ↗
                     </a>
+                  )}
+                  {onRequestListing && (
+                    <button
+                      className="wb-button wb-button-secondary"
+                      disabled={
+                        requestsUnavailable ||
+                        process.env.NEXT_PUBLIC_APP_DEPLOYMENT_ENV === "preview"
+                      }
+                      onClick={() => onRequestListing(listing)}
+                    >
+                      Request a shop step
+                    </button>
                   )}
                   {confirmMatch && (
                     <button
@@ -463,13 +496,7 @@ export function AttentionView({
           <article className="wb-listing-row" key={row.id}>
             <div>
               <span className="wb-badge wb-badge-amber">{row.state}</span>
-              <h3>
-                {row.action === "delist"
-                  ? "Listing removal"
-                  : row.action === "publish"
-                    ? "Publish listing"
-                    : "Update listing"}
-              </h3>
+              <h3>{OPERATION_LABELS[row.action] || "Marketplace step"}</h3>
               <p>{row.reason}</p>
               <p>
                 {row.last_error ||
